@@ -1,0 +1,246 @@
+<!-- PM Chat Widget -->
+<div id="pmChatWidget" class="pm-chat-widget hidden">
+  <div class="pm-chat-header">
+    <div class="pm-chat-title">
+      <span>💬 PM ile Chat</span>
+      <span class="pm-status">Online</span>
+    </div>
+    <div class="pm-chat-controls">
+      <button class="btn-icon" onclick="minimizePMChat()">−</button>
+      <button class="btn-icon" onclick="closePMChat()">✕</button>
+    </div>
+  </div>
+
+  <div class="pm-chat-messages" id="pmChatMessages">
+    <div class="pm-chat-message system">
+      <span class="time">Sistem</span>
+      <span class="text">PM hazır. Sorularına cevap verebilir.</span>
+    </div>
+  </div>
+
+  <div class="pm-chat-input-area">
+    <input
+      type="text"
+      id="pmChatInput"
+      placeholder="PM'e mesaj yaz..."
+      onkeypress="handlePMChatEnter(event)"
+    >
+    <button class="btn-send" onclick="sendPMChat()">📤</button>
+  </div>
+</div>
+
+<!-- PM Chat Toggle Button -->
+<button id="pmChatToggle" class="pm-chat-toggle" onclick="togglePMChat()">
+  💬 PM
+  <span class="notification-badge hidden" id="pmChatBadge">0</span>
+</button>
+
+<style>
+.pm-chat-widget {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 400px;
+  height: 500px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.pm-chat-widget.hidden {
+  display: none;
+}
+
+.pm-chat-widget.minimized {
+  height: 60px;
+}
+
+.pm-chat-widget.minimized .pm-chat-messages,
+.pm-chat-widget.minimized .pm-chat-input-area {
+  display: none;
+}
+
+.pm-chat-header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-tertiary);
+  border-radius: 12px 12px 0 0;
+}
+
+.pm-chat-title {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.pm-status {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--success);
+  color: var(--bg-primary);
+  border-radius: 10px;
+}
+
+.pm-chat-controls {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.pm-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.pm-chat-message {
+  padding: 0.8rem;
+  border-radius: 8px;
+  max-width: 80%;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pm-chat-message.user {
+  background: var(--accent-primary);
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+.pm-chat-message.pm {
+  background: var(--bg-elevated);
+  align-self: flex-start;
+  border-bottom-left-radius: 2px;
+}
+
+.pm-chat-message.system {
+  background: var(--bg-tertiary);
+  align-self: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  max-width: 100%;
+  text-align: center;
+}
+
+.pm-chat-message .time {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.3rem;
+}
+
+.pm-chat-message.user .time {
+  color: rgba(255, 255, 255, 0.7);
+  text-align: right;
+}
+
+.pm-chat-message .text {
+  display: block;
+  line-height: 1.4;
+}
+
+.pm-chat-input-area {
+  padding: 1rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 0.5rem;
+  background: var(--bg-tertiary);
+  border-radius: 0 0 12px 12px;
+}
+
+.pm-chat-input-area input {
+  flex: 1;
+  padding: 0.7rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.pm-chat-input-area input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.btn-send {
+  padding: 0.7rem 1rem;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.btn-send:hover {
+  background: var(--accent-hover);
+}
+
+.pm-chat-toggle {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  padding: 0.8rem 1.2rem;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 122, 204, 0.4);
+  transition: all 0.3s;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pm-chat-toggle:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 122, 204, 0.6);
+}
+
+.pm-chat-toggle.hidden {
+  display: none;
+}
+
+.notification-badge {
+  background: var(--error);
+  color: white;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+.notification-badge.hidden {
+  display: none;
+}
+</style>

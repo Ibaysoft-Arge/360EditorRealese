@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>360 Editor - AI Agent IDE</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="logo">
+        <h1>⚡ 360 EDITOR</h1>
+        <span class="subtitle">AI Agent IDE</span>
+      </div>
+
+      <div class="top-actions">
+        <div class="claude-status" id="claudeStatus">
+          <span class="status-dot"></span>
+          <span class="status-text">Kontrol ediliyor...</span>
+        </div>
+        <button class="btn-icon" onclick="openSettings()" title="Settings">⚙️</button>
+        <div class="status-indicator connected" id="connectionStatus">
+          <span class="dot"></span>
+          <span class="text">Bağlı</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+
+      <!-- Left Sidebar -->
+      <aside class="left-sidebar">
+        <div class="sidebar-tabs">
+          <button class="tab-btn active" onclick="switchTab('workspaces')" id="tab-workspaces">
+            📁 Projeler
+          </button>
+          <button class="tab-btn" onclick="switchTab('agents')" id="tab-agents">
+            👥 Agentlar
+          </button>
+          <button class="tab-btn" onclick="switchTab('tasks')" id="tab-tasks">
+            🎯 Görevler
+          </button>
+        </div>
+
+        <!-- Workspaces Tab -->
+        <div class="tab-content active" id="content-workspaces">
+          <div class="section-header">
+            <h3>Workspace'ler</h3>
+            <button class="btn-sm" onclick="showWorkspaceForm()">➕</button>
+          </div>
+
+          <form id="workspaceForm" class="inline-form hidden">
+            <input type="text" id="wsName" placeholder="Proje adı" required>
+            <input type="text" id="wsPath" placeholder="Proje yolu" required>
+            <div class="form-actions">
+              <button type="submit" class="btn-sm">✓</button>
+              <button type="button" class="btn-sm" onclick="hideWorkspaceForm()">✕</button>
+            </div>
+          </form>
+
+          <div id="workspaceList" class="item-list"></div>
+        </div>
+
+        <!-- Agents Tab -->
+        <div class="tab-content" id="content-agents">
+          <div class="section-header">
+            <h3>Agent Havuzu</h3>
+            <button class="btn-sm" onclick="showAgentForm()">➕</button>
+          </div>
+
+          <form id="agentForm" class="inline-form hidden">
+            <input type="text" id="agentName" placeholder="Agent adı" required>
+            <select id="agentRole" required>
+              <option value="frontend">Frontend</option>
+              <option value="backend">Backend</option>
+              <option value="fullstack">Fullstack</option>
+              <option value="ui">UI Designer</option>
+              <option value="tester">Tester</option>
+              <option value="security">Security</option>
+              <option value="devops">DevOps</option>
+            </select>
+            <div class="form-actions">
+              <button type="submit" class="btn-sm">✓</button>
+              <button type="button" class="btn-sm" onclick="hideAgentForm()">✕</button>
+            </div>
+          </form>
+
+          <div id="agentList" class="item-list"></div>
+        </div>
+
+        <!-- Tasks Tab -->
+        <div class="tab-content" id="content-tasks">
+          <div class="section-header">
+            <h3>Görevler</h3>
+          </div>
+
+          <div id="taskList" class="item-list"></div>
+        </div>
+      </aside>
+
+      <!-- Editor Area -->
+      <main class="editor-area">
+        <div class="editor-header">
+          <div class="file-tabs" id="fileTabs">
+            <div class="tab welcome-tab active">
+              <span>🏠 Hoşgeldin</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="editor-content">
+          <!-- Activity Dashboard -->
+          <div id="activityDashboard" class="activity-dashboard">
+            <div class="dashboard-header">
+              <h1>📊 Activity Dashboard</h1>
+              <div class="dashboard-filters">
+                <button class="filter-btn active" onclick="filterActivity('all')">Tümü</button>
+                <button class="filter-btn" onclick="filterActivity('today')">Bugün</button>
+                <button class="filter-btn" onclick="filterActivity('task')">Görevlere Göre</button>
+              </div>
+            </div>
+
+            <div class="dashboard-content">
+              <!-- Agent Status Cards -->
+              <div class="agent-status-section">
+                <h3>🤖 Agent Durumu</h3>
+                <div id="agentStatusCards" class="agent-status-grid"></div>
+              </div>
+
+              <!-- Activity Timeline -->
+              <div class="activity-timeline-section">
+                <h3>📜 Aktivite Akışı</h3>
+                <div id="activityTimeline" class="activity-timeline"></div>
+              </div>
+
+              <!-- PM Conversations -->
+              <div class="pm-conversations-section">
+                <h3>💬 PM - Agent Konuşmaları</h3>
+                <div id="pmConversations" class="pm-conversations"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Monaco Editor Container -->
+          <div id="editorContainer" class="editor-container hidden"></div>
+        </div>
+      </main>
+
+      <!-- Right Sidebar - PM & Activity -->
+      <aside class="right-sidebar" id="rightSidebar">
+        <div class="sidebar-header">
+          <h3>🎯 Product Manager</h3>
+          <button class="btn-icon" onclick="toggleRightSidebar()">✕</button>
+        </div>
+
+        <!-- PM Task Form -->
+        <div class="pm-section">
+          <form id="pmTaskForm" class="pm-form">
+            <select id="pmWorkspace" required>
+              <option value="">Proje seç...</option>
+            </select>
+            <textarea id="pmTask" placeholder="PM'e görev ver: Login sistemi yap, JWT kullan..." required rows="3"></textarea>
+            <button type="submit" class="btn-primary">🚀 Görevi Başlat</button>
+          </form>
+        </div>
+
+        <hr>
+
+        <!-- Activity Feed -->
+        <div class="activity-section">
+          <h4>📡 Canlı Aktivite</h4>
+          <div id="activityFeed" class="activity-feed"></div>
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>⚙️ Ayarlar</h2>
+          <button class="btn-icon" onclick="closeSettings()">✕</button>
+        </div>
+        <div class="modal-body">
+
+          <div class="info-box">
+            <strong>🤖 Claude Code Local Mode</strong>
+            <p style="margin: 0.5rem 0; font-size: 0.9rem;">
+              360 Editor, bilgisayarındaki Claude Code CLI'ı kullanır. API key gerekmez!
+            </p>
+
+            <ol style="margin: 0.5rem 0; padding-left: 1.5rem; font-size: 0.85rem;">
+              <li>Terminal aç (CMD/PowerShell)</li>
+              <li>Komut: <code style="background: #2d2d2d; padding: 2px 6px; border-radius: 3px;">claude login</code></li>
+              <li>Browser'da giriş yap</li>
+              <li>Bu uygulamayı yeniden başlat</li>
+            </ol>
+
+            <p style="margin: 0.5rem 0; font-size: 0.85rem; color: #888;">
+              Durum: <span id="claudeLoginStatus" style="font-weight: bold;">Kontrol ediliyor...</span>
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>PM Kişiliği</label>
+            <select id="pmPersonality">
+              <option value="sert">Sert (Argo kullanır)</option>
+              <option value="nazik">Nazik (Profesyonel)</option>
+              <option value="komik">Komik (Esprili)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary" onclick="saveSettings()">💾 Kaydet</button>
+          <button class="btn-secondary" onclick="closeSettings()">Kapat</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PM Chat Widget -->
+  <div id="pmChatWidget" class="pm-chat-widget hidden"></div>
+  <button id="pmChatToggle" class="pm-chat-toggle" onclick="togglePMChat()">
+    💬 PM
+    <span class="notification-badge hidden" id="pmChatBadge">0</span>
+  </button>
+
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+  <script src="pm-chat.js"></script>
+  <script src="dashboard.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

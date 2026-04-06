@@ -1,0 +1,85 @@
+{
+  "name": "360editor",
+  "version": "1.0.0",
+  "description": "360 Editor - AI Agent IDE powered by Claude Code",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "electron": "electron .",
+    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3360 && electron .\"",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "claude",
+    "ide",
+    "editor"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@monaco-editor/loader": "^1.7.0",
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "monaco-editor": "^0.55.1",
+    "socket.io": "^4.6.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
+    "nodemon": "^3.0.1",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "com.360editor.app",
+    "productName": "360 Editor",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron-main.js",
+      "electron-preload.js",
+      "backend/**/*",
+      "frontend/**/*",
+      "bridge/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Development"
+    }
+  }
+}
