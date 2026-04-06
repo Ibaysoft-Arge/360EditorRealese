@@ -1,0 +1,33 @@
+/* Light Theme */
+:root[data-theme="light"] {
+  /* Ana Renkler */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f3f3;
+  --bg-tertiary: #e8e8e8;
+  --bg-hover: #e0e0e0;
+
+  /* Metin */
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+
+  /* Border */
+  --border-color: #d4d4d4;
+  --border-light: #e5e5e5;
+
+  /* Vurgular */
+  --accent-primary: #0078d4;
+  --accent-hover: #106ebe;
+  --accent-active: #005a9e;
+
+  /* Status */
+  --success: #16ab39;
+  --warning: #f57c00;
+  --error: #d32f2f;
+  --info: #1976d2;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.15);
+  --shadow-lg: 0 10px 20px rgba(0,0,0,0.2);
+}

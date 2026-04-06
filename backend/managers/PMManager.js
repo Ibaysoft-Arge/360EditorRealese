@@ -2,11 +2,12 @@ const QueueManager = require('../../bridge/queue-manager');
 const ClaudeChannelsHandler = require('../claude/ClaudeChannelsHandler');
 
 class PMManager {
-  constructor(io, workspaceManager, agentPoolManager, taskManager) {
+  constructor(io, workspaceManager, agentPoolManager, taskManager, telegramManager = null) {
     this.io = io;
     this.workspaceManager = workspaceManager;
     this.agentPoolManager = agentPoolManager;
     this.taskManager = taskManager;
+    this.telegramManager = telegramManager;
     this.queueManager = new QueueManager();
     this.claudeHandler = new ClaudeChannelsHandler();
     this.taskHistory = [];
@@ -64,10 +65,14 @@ class PMManager {
         taskRequest.task += `\n\nPatron'un cevabı: ${taskRequest.additionalInfo}`;
       }
 
+      // PM kişiliğini al (frontend'den gelecek, yoksa sert olsun)
+      const personality = taskRequest.personality || 'sert';
+
       const pmPlan = await this.claudeHandler.processPMTask(
         taskRequest,
         workspaces,
-        agents
+        agents,
+        personality
       );
 
       // Task oluştur
@@ -82,6 +87,12 @@ class PMManager {
           subTask: a.subTask
         }))
       });
+
+      // Telegram bildirimi: Görev başladı
+      if (this.telegramManager && this.telegramManager.isConfigured) {
+        const workspace = workspaces.find(w => w.id === taskRequest.workspaceId);
+        await this.telegramManager.notifyTaskStarted(taskRequest.task, workspace?.name || 'Unknown');
+      }
 
       // PM planını uygula
       await this.executePMPlan(taskId, pmPlan, taskRequest);
@@ -111,6 +122,13 @@ class PMManager {
         message: `🤔 Bir sorum var: ${pmPlan.question}`,
         timestamp: new Date().toISOString()
       });
+
+      // Telegram bildirimi: PM soru sordu
+      if (this.telegramManager && this.telegramManager.isConfigured) {
+        const workspace = this.workspaceManager.getAllWorkspaces()
+          .find(w => w.id === taskRequest.workspaceId);
+        await this.telegramManager.notifyPMQuestion(pmPlan.question, workspace?.name || 'Unknown');
+      }
 
       // Cevap beklemeye al
       this.activeTasks.set(taskId, { taskRequest, waitingForAnswer: true });
@@ -149,6 +167,11 @@ class PMManager {
           message: `🚀 Göreve başladı: ${agentAssignment.subTask}`,
           timestamp: new Date().toISOString()
         });
+
+        // Telegram bildirimi: Agent atandı
+        if (this.telegramManager && this.telegramManager.isConfigured) {
+          await this.telegramManager.notifyAgentAssigned(agent.name, agentAssignment.subTask);
+        }
 
         // Agent'ı asenkron çalıştır
         this.runAgentTask(agentAssignment, workspace, taskId).catch(err => {
@@ -209,6 +232,15 @@ class PMManager {
       // Agent'ı serbest bırak
       this.agentPoolManager.freeAgent(agentAssignment.agentId);
 
+      // Performance metrics güncelle (eğer task var ve duration hesaplanabiliyorsa)
+      const task = this.taskManager.getTask(taskId);
+      if (task && agent.startTime) {
+        const startTime = new Date(agent.startTime);
+        const endTime = new Date();
+        const duration = Math.floor((endTime - startTime) / 1000); // saniye
+        this.agentPoolManager.updateAgentMetrics(agentAssignment.agentId, duration);
+      }
+
       // PM agent'a geri bildirim verir
       this.io.emit('pm:message', {
         taskId: taskId,
@@ -250,6 +282,16 @@ class PMManager {
           message: `🎉 Patron, görev tamamlandı! Tüm agent'lar işini bitirdi. Kontrol et!`,
           timestamp: new Date().toISOString()
         });
+
+        // Telegram bildirimi: Görev tamamlandı
+        if (this.telegramManager && this.telegramManager.isConfigured) {
+          const task = this.taskManager.getTask(taskId);
+          const workspace = this.workspaceManager.getAllWorkspaces()
+            .find(w => w.id === task.workspaceId);
+
+          const duration = task.startTime ? Date.now() - new Date(task.startTime).getTime() : null;
+          await this.telegramManager.notifyTaskCompleted(task.title, workspace?.name || 'Unknown', duration);
+        }
       }
 
     } catch (error) {
@@ -259,6 +301,15 @@ class PMManager {
         message: `❌ Görev başarısız: ${error.message}`,
         timestamp: new Date().toISOString()
       });
+
+      // Telegram bildirimi: Görev başarısız
+      if (this.telegramManager && this.telegramManager.isConfigured) {
+        const task = this.taskManager.getTask(taskId);
+        const workspace = this.workspaceManager.getAllWorkspaces()
+          .find(w => w.id === task.workspaceId);
+
+        await this.telegramManager.notifyTaskFailed(task.title, workspace?.name || 'Unknown', error.message);
+      }
 
       this.agentPoolManager.freeAgent(agentAssignment.agentId);
     }

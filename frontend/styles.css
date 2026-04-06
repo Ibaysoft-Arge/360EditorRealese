@@ -52,6 +52,18 @@ body {
   -webkit-app-region: no-drag;
 }
 
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
 .logo h1 {
   font-size: 1rem;
   font-weight: 600;
@@ -61,6 +73,7 @@ body {
 .subtitle {
   font-size: 0.75rem;
   color: var(--text-secondary);
+  line-height: 1;
 }
 
 .top-actions {
@@ -632,6 +645,33 @@ body {
 .btn-icon:hover {
   color: var(--text-primary);
   background: var(--bg-elevated);
+}
+
+/* Top Bar Selectors */
+.top-selector {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.top-selector:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent-primary);
+}
+
+.top-selector:focus {
+  border-color: var(--accent-primary);
+}
+
+.top-selector option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 /* Forms */

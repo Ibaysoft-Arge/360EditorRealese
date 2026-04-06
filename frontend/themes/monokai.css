@@ -1,0 +1,33 @@
+/* Monokai Theme */
+:root[data-theme="monokai"] {
+  /* Ana Renkler */
+  --bg-primary: #272822;
+  --bg-secondary: #2e2e28;
+  --bg-tertiary: #3e3d32;
+  --bg-hover: #49483e;
+
+  /* Metin */
+  --text-primary: #f8f8f2;
+  --text-secondary: #a59f85;
+  --text-muted: #75715e;
+
+  /* Border */
+  --border-color: #49483e;
+  --border-light: #3e3d32;
+
+  /* Vurgular */
+  --accent-primary: #66d9ef;
+  --accent-hover: #a1efe4;
+  --accent-active: #4fc5d6;
+
+  /* Status */
+  --success: #a6e22e;
+  --warning: #fd971f;
+  --error: #f92672;
+  --info: #66d9ef;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.5);
+  --shadow-lg: 0 10px 20px rgba(0,0,0,0.6);
+}

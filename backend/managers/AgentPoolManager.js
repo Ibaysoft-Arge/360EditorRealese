@@ -104,6 +104,30 @@ class AgentPoolManager {
 
     this.io.emit('agent:deleted', { agentId });
   }
+
+  // Performance metrics güncelle
+  updateAgentMetrics(agentId, taskDuration) {
+    const agent = this.agents.get(agentId);
+    if (agent) {
+      // Metrics başlat (yoksa)
+      if (!agent.completedTasks) agent.completedTasks = 0;
+      if (!agent.totalDuration) agent.totalDuration = 0;
+
+      // Metrics güncelle
+      agent.completedTasks += 1;
+      agent.totalDuration += taskDuration;
+      agent.lastActivity = new Date().toISOString();
+
+      // DB'ye kaydet
+      this.db.updateAgent(agentId, {
+        completedTasks: agent.completedTasks,
+        totalDuration: agent.totalDuration,
+        lastActivity: agent.lastActivity
+      });
+
+      this.io.emit('agent:updated', agent);
+    }
+  }
 }
 
 module.exports = AgentPoolManager;

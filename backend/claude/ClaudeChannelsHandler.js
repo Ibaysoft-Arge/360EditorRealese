@@ -2,10 +2,12 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const AgentMemoryManager = require('../managers/AgentMemoryManager');
 
 class ClaudeChannelsHandler {
   constructor() {
     this.authenticated = false;
+    this.memoryManager = new AgentMemoryManager();
     this.checkAuth();
   }
 
@@ -47,7 +49,7 @@ class ClaudeChannelsHandler {
   }
 
   // PM görevi için Claude Code çalıştır
-  async processPMTask(taskRequest, workspaces, agents) {
+  async processPMTask(taskRequest, workspaces, agents, personality = 'sert') {
     if (!this.authenticated) {
       throw new Error('Claude Code ile giriş yapılmamış! Terminal: claude login');
     }
@@ -62,7 +64,17 @@ class ClaudeChannelsHandler {
       throw new Error('Hiç boşta agent yok!');
     }
 
-    const prompt = `Sen bir Product Manager'sın (PM). Sert ama adil konuşursun.
+    // PM kişiliği belirleme
+    let personalityPrompt = '';
+    if (personality === 'sert') {
+      personalityPrompt = 'Sen bir Product Manager\'sın (PM). Sert ama adil konuşursun. Argo kullanabilirsin, direkt ve net konuş.';
+    } else if (personality === 'nazik') {
+      personalityPrompt = 'Sen bir Product Manager\'sın (PM). Nazik, profesyonel ve motive edici konuşursun. Takım çalışmasına önem verirsin.';
+    } else if (personality === 'komik') {
+      personalityPrompt = 'Sen bir Product Manager\'sın (PM). Esprili, şakacı ama işini ciddiye alan birisin. Mesajlarına mizah katarsın.';
+    }
+
+    const prompt = `${personalityPrompt}
 
 WORKSPACE: ${workspace.name} (${workspace.path})
 
@@ -122,11 +134,24 @@ TEKRAR: SADECE JSON yaz, başka hiçbir şey yazma!`;
       throw new Error('Claude Code ile giriş yapılmamış!');
     }
 
+    // Agent hafızasını yükle (hem global hem project)
+    const memoryData = this.memoryManager.getCombinedAgentMemory(
+      workspace.path,
+      agentConfig.id,
+      agentConfig.name
+    );
+
+    const workspaceContext = this.memoryManager.getWorkspaceContext(workspace.path);
+
     const prompt = `Sen bir ${agentConfig.role} agent'sın. İsmin: ${agentConfig.name}.
 
 WORKSPACE: ${workspace.name} (${workspace.path})
 
 PM sana görev verdi: ${task}
+
+${workspaceContext ? `\n📋 WORKSPACE CONTEXT (Proje Bilgisi):\n${workspaceContext}\n` : ''}
+
+${memoryData.combined ? `\n🧠 HAFIZAM:\n${memoryData.combined}\n` : ''}
 
 ÖNEMLİ TALİMATLAR:
 1. Bu workspace'deki dosyaları OKU (Read tool kullan)

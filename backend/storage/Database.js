@@ -70,6 +70,16 @@ class StorageDB {
       // Kolon zaten varsa hata verir, ignore et
     }
 
+    // Performance metrics kolonları ekle
+    try {
+      this.db.exec(`ALTER TABLE agents ADD COLUMN completedTasks INTEGER DEFAULT 0`);
+      this.db.exec(`ALTER TABLE agents ADD COLUMN totalDuration INTEGER DEFAULT 0`);
+      this.db.exec(`ALTER TABLE agents ADD COLUMN lastActivity TEXT`);
+      console.log('✅ Performance metrics kolonları eklendi');
+    } catch (e) {
+      // Kolonlar zaten varsa hata verir, ignore et
+    }
+
     console.log('✅ Database tables hazır');
   }
 

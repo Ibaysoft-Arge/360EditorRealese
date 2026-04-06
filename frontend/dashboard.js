@@ -33,7 +33,11 @@ function saveDashboardData() {
 }
 
 function initDashboard() {
+  console.log('📊 Dashboard başlatılıyor...');
   loadDashboardData(); // İlk yüklemede veriyi al
+
+  console.log('📋 Yüklenen aktivite sayısı:', activityLog.length);
+  console.log('💬 Yüklenen konuşma sayısı:', Object.keys(pmConversations).length);
 
   renderAgentStatus();
   renderActivityTimeline();

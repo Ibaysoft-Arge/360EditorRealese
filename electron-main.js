@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -45,7 +45,16 @@ function createWindow() {
   }, 2000);
 
   // DevTools (development için)
-  // mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools();
+
+  // Keyboard shortcuts
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    // Ctrl+Shift+I veya F12 - DevTools toggle
+    if ((input.control && input.shift && input.key.toLowerCase() === 'i') || input.key === 'F12') {
+      mainWindow.webContents.toggleDevTools();
+      event.preventDefault();
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -86,4 +95,17 @@ app.on('before-quit', () => {
 // IPC handlers
 ipcMain.handle('get-app-path', () => {
   return app.getPath('userData');
+});
+
+// Notification handler
+ipcMain.handle('show-notification', (event, { title, body }) => {
+  if (Notification.isSupported()) {
+    new Notification({
+      title: title,
+      body: body,
+      icon: path.join(__dirname, 'assets/images/logoicon.png')
+    }).show();
+    return true;
+  }
+  return false;
 });

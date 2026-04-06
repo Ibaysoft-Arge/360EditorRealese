@@ -8,6 +8,9 @@ const WorkspaceManager = require('./managers/WorkspaceManager');
 const AgentPoolManager = require('./managers/AgentPoolManager');
 const PMManager = require('./managers/PMManager');
 const TaskManager = require('./managers/TaskManager');
+const AgentMemoryManager = require('./managers/AgentMemoryManager');
+const TelegramManager = require('./managers/TelegramManager');
+const GitDiffHelper = require('./utils/GitDiffHelper');
 const StorageDB = require('./storage/Database');
 
 const app = express();
@@ -22,6 +25,7 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/assets', express.static(path.join(__dirname, '../assets')));
 
 // Database
 const db = new StorageDB();
@@ -30,7 +34,10 @@ const db = new StorageDB();
 const workspaceManager = new WorkspaceManager(io, db);
 const agentPoolManager = new AgentPoolManager(io, db);
 const taskManager = new TaskManager(io, db);
-const pmManager = new PMManager(io, workspaceManager, agentPoolManager, taskManager);
+const memoryManager = new AgentMemoryManager();
+const gitDiffHelper = new GitDiffHelper();
+const telegramManager = new TelegramManager(io);
+const pmManager = new PMManager(io, workspaceManager, agentPoolManager, taskManager, telegramManager);
 
 // Socket.IO bağlantıları
 io.on('connection', (socket) => {
@@ -172,6 +179,210 @@ io.on('connection', (socket) => {
       // Normal sohbet
       io.emit('pm:chat-response', {
         message: 'Merhaba! Görev verdiğinde soruları burada sorarım.'
+      });
+    }
+  });
+
+  // AGENT HAFIZA OLAYLARI
+  socket.on('agent:get-memory', (data) => {
+    const { workspaceId, agentId } = data;
+    const workspace = workspaceManager.getAllWorkspaces().find(w => w.id === workspaceId);
+    const agent = agentPoolManager.getAgent(agentId);
+
+    if (workspace && agent) {
+      const memoryData = memoryManager.getCombinedAgentMemory(workspace.path, agent.id, agent.name);
+      const workspaceContext = memoryManager.getWorkspaceContext(workspace.path);
+
+      socket.emit('agent:memory-loaded', {
+        agentId,
+        globalMemory: memoryData.global,
+        projectMemory: memoryData.project,
+        workspaceContext
+      });
+    }
+  });
+
+  socket.on('agent:get-global-memory', (data) => {
+    const { agentId } = data;
+    const agent = agentPoolManager.getAgent(agentId);
+
+    if (agent) {
+      const globalMemory = memoryManager.getGlobalAgentMemory(agent.id, agent.name);
+
+      socket.emit('agent:global-memory-loaded', {
+        agentId,
+        globalMemory
+      });
+    }
+  });
+
+  socket.on('agent:add-global-memory', (data) => {
+    const { agentId, note } = data;
+    const agent = agentPoolManager.getAgent(agentId);
+
+    if (agent) {
+      const success = memoryManager.addToGlobalAgentMemory(agent.id, agent.name, note);
+
+      if (success) {
+        socket.emit('agent:global-memory-added', {
+          agentId,
+          message: '✅ Genel hafızaya eklendi!'
+        });
+        console.log(`🌍 ${agent.name} genel hafızasına not eklendi`);
+      }
+    }
+  });
+
+  socket.on('agent:update-global-memory', (data) => {
+    const { agentId, content } = data;
+    const agent = agentPoolManager.getAgent(agentId);
+
+    if (agent) {
+      const success = memoryManager.updateGlobalAgentMemory(agent.id, agent.name, content);
+
+      if (success) {
+        socket.emit('agent:global-memory-updated', {
+          agentId,
+          message: '✅ Genel hafıza güncellendi!'
+        });
+        console.log(`🌍 ${agent.name} genel hafızası güncellendi`);
+      }
+    }
+  });
+
+  socket.on('agent:add-memory', (data) => {
+    const { workspaceId, agentId, note } = data;
+    const workspace = workspaceManager.getAllWorkspaces().find(w => w.id === workspaceId);
+    const agent = agentPoolManager.getAgent(agentId);
+
+    if (workspace && agent) {
+      const success = memoryManager.addToAgentMemory(workspace.path, agent.id, agent.name, note);
+
+      if (success) {
+        socket.emit('agent:memory-added', {
+          agentId,
+          message: '✅ Hafızaya eklendi!'
+        });
+        console.log(`🧠 ${agent.name} hafızasına not eklendi`);
+      }
+    }
+  });
+
+  socket.on('agent:update-memory', (data) => {
+    const { workspaceId, agentId, content } = data;
+    const workspace = workspaceManager.getAllWorkspaces().find(w => w.id === workspaceId);
+    const agent = agentPoolManager.getAgent(agentId);
+
+    if (workspace && agent) {
+      const success = memoryManager.updateAgentMemory(workspace.path, agent.id, agent.name, content);
+
+      if (success) {
+        socket.emit('agent:memory-updated', {
+          agentId,
+          message: '✅ Hafıza güncellendi!'
+        });
+        console.log(`🧠 ${agent.name} hafızası güncellendi`);
+      }
+    }
+  });
+
+  socket.on('workspace:update-context', (data) => {
+    const { workspaceId, content } = data;
+    const workspace = workspaceManager.getAllWorkspaces().find(w => w.id === workspaceId);
+
+    if (workspace) {
+      const success = memoryManager.updateWorkspaceContext(workspace.path, content);
+
+      if (success) {
+        socket.emit('workspace:context-updated', {
+          workspaceId,
+          message: '✅ Workspace context güncellendi!'
+        });
+        console.log(`📋 ${workspace.name} context güncellendi`);
+      }
+    }
+  });
+
+  // GIT DIFF OLAYLARI
+  socket.on('task:get-diff', async (data) => {
+    const { taskId } = data;
+    const task = taskManager.getTask(taskId);
+
+    if (task) {
+      const workspace = workspaceManager.getAllWorkspaces().find(w => w.id === task.workspaceId);
+
+      if (workspace) {
+        try {
+          const diff = await gitDiffHelper.getWorkspaceDiff(workspace.path);
+          const changedFiles = await gitDiffHelper.getChangedFiles(workspace.path);
+
+          socket.emit('task:diff-loaded', {
+            taskId,
+            diff,
+            changedFiles
+          });
+
+          console.log(`📊 ${workspace.name} diff loaded: ${diff.totalFiles} files`);
+        } catch (error) {
+          socket.emit('task:diff-error', {
+            taskId,
+            message: error.message
+          });
+        }
+      }
+    }
+  });
+
+  socket.on('task:get-file-diff', async (data) => {
+    const { taskId, filePath } = data;
+    const task = taskManager.getTask(taskId);
+
+    if (task) {
+      const workspace = workspaceManager.getAllWorkspaces().find(w => w.id === task.workspaceId);
+
+      if (workspace) {
+        try {
+          const fileDiff = await gitDiffHelper.getFileDiff(workspace.path, filePath);
+
+          socket.emit('task:file-diff-loaded', {
+            taskId,
+            filePath,
+            diff: fileDiff
+          });
+        } catch (error) {
+          socket.emit('task:diff-error', {
+            taskId,
+            message: error.message
+          });
+        }
+      }
+    }
+  });
+
+  // TELEGRAM OLAYLARI
+  socket.on('telegram:config', (data) => {
+    const { botToken, chatId } = data;
+    const success = telegramManager.configure(botToken, chatId);
+
+    if (success) {
+      socket.emit('telegram:configured');
+      console.log('✅ Telegram yapılandırıldı:', chatId);
+    } else {
+      socket.emit('telegram:test-error', {
+        message: 'Telegram bot yapılandırılamadı'
+      });
+    }
+  });
+
+  socket.on('telegram:test', async (data) => {
+    const { botToken, chatId } = data;
+    const result = await telegramManager.testConnection(botToken, chatId);
+
+    if (result.success) {
+      socket.emit('telegram:test-success');
+    } else {
+      socket.emit('telegram:test-error', {
+        message: result.message
       });
     }
   });
