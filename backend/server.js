@@ -82,6 +82,65 @@ io.on('connection', (socket) => {
     await pmManager.checkClaudeAuth();
   });
 
+  // Task Durdur
+  socket.on('task:stop', (data) => {
+    const { taskId } = data;
+    const task = taskManager.stopTask(taskId);
+
+    if (task) {
+      console.log('⏸️ Görev durduruldu:', taskId);
+
+      // Görevdeki tüm agent'ları serbest bırak
+      const agents = agentPoolManager.getAllAgents();
+      agents.forEach(agent => {
+        if (agent.status === 'working' && agent.currentWorkspace === task.workspaceId) {
+          agentPoolManager.freeAgent(agent.id);
+        }
+      });
+
+      socket.emit('task:stopped', { taskId });
+    }
+  });
+
+  // Task Sil
+  socket.on('task:delete', (data) => {
+    const { taskId } = data;
+    taskManager.deleteTask(taskId);
+    console.log('🗑️ Görev silindi:', taskId);
+  });
+
+  // Task Rollback (Git restore)
+  socket.on('task:rollback', async (data) => {
+    const { taskId } = data;
+    const task = taskManager.getTask(taskId);
+
+    if (task) {
+      const workspace = workspaceManager.getAllWorkspaces().find(w => w.id === task.workspaceId);
+
+      if (workspace) {
+        try {
+          // Git ile değişiklikleri geri al
+          const { spawn } = require('child_process');
+          const git = spawn('git', ['restore', '.'], {
+            cwd: workspace.path,
+            shell: true
+          });
+
+          git.on('close', (code) => {
+            if (code === 0) {
+              console.log('↩️ Rollback başarılı:', taskId);
+              socket.emit('task:rollback-success', { taskId });
+            } else {
+              socket.emit('task:rollback-error', { taskId, message: 'Git restore başarısız' });
+            }
+          });
+        } catch (error) {
+          socket.emit('task:rollback-error', { taskId, message: error.message });
+        }
+      }
+    }
+  });
+
   // PM Chat - Kullanıcıdan cevap
   socket.on('pm:chat-message', async (data) => {
     console.log('💬 PM Chat mesajı geldi:', data.message);

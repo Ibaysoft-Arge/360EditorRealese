@@ -138,6 +138,20 @@ function initSocket() {
     tasks = tasks.filter(t => t.id !== taskId);
     window.tasks = tasks;
     renderTasks();
+    renderWorkspaces();
+  });
+
+  socket.on('task:stopped', ({ taskId }) => {
+    addActivity('system', `⏸️ Görev durduruldu`);
+  });
+
+  socket.on('task:rollback-success', ({ taskId }) => {
+    addActivity('system', `✅ Rollback başarılı! Değişiklikler geri alındı.`);
+  });
+
+  socket.on('task:rollback-error', ({ taskId, message }) => {
+    addActivity('system', `❌ Rollback hatası: ${message}`);
+    alert(`Rollback başarısız: ${message}`);
   });
 
   socket.on('pm:task-received', (data) => {
@@ -295,14 +309,19 @@ function renderWorkspaces() {
 
   container.innerHTML = workspaces.map(ws => {
     const workspaceTasks = allTasks.filter(t => t.workspaceId === ws.id);
+    const isExpanded = window.expandedWorkspaces && window.expandedWorkspaces[ws.id];
 
     return `
       <div class="workspace-item-wrapper">
-        <div class="workspace-item" onclick="openWorkspace('${ws.id}')">
-          <div class="name">${ws.name} ${workspaceTasks.length > 0 ? `<span style="font-size: 0.75rem; opacity: 0.7;">(${workspaceTasks.length})</span>` : ''}</div>
+        <div class="workspace-item" onclick="${workspaceTasks.length > 0 ? `toggleWorkspaceTasks('${ws.id}')` : `openWorkspace('${ws.id}')`}">
+          <div class="name">
+            ${workspaceTasks.length > 0 ? `<span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>` : ''}
+            ${ws.name}
+            ${workspaceTasks.length > 0 ? `<span style="font-size: 0.75rem; opacity: 0.7;">(${workspaceTasks.length})</span>` : ''}
+          </div>
           <div class="path">${ws.path}</div>
         </div>
-        ${workspaceTasks.length > 0 ? `
+        ${workspaceTasks.length > 0 && isExpanded ? `
           <div class="workspace-tasks">
             ${workspaceTasks.map(task => {
               const statusIcon = task.status === 'completed' ? '✅' : task.status === 'in-progress' ? '🔄' : '⏸️';
@@ -319,6 +338,21 @@ function renderWorkspaces() {
   }).join('');
 
   updateWorkspaceSelect();
+}
+
+// Workspace görevlerini aç/kapa
+window.expandedWorkspaces = window.expandedWorkspaces || {};
+
+function toggleWorkspaceTasks(workspaceId) {
+  window.expandedWorkspaces[workspaceId] = !window.expandedWorkspaces[workspaceId];
+
+  const ws = workspaces.find(w => w.id === workspaceId);
+  if (ws) {
+    const action = window.expandedWorkspaces[workspaceId] ? 'açıldı' : 'kapandı';
+    addActivity('system', `📁 "${ws.name}" görevleri ${action}`);
+  }
+
+  renderWorkspaces();
 }
 
 function renderAgents() {
@@ -353,8 +387,8 @@ function renderTasks() {
 
   container.innerHTML = tasks.map(task => {
     const workspace = workspaces.find(w => w.id === task.workspaceId);
-    const statusIcon = task.status === 'completed' ? '✅' : task.status === 'in-progress' ? '🔄' : '⏸️';
-    const statusText = task.status === 'completed' ? 'Tamamlandı' : task.status === 'in-progress' ? 'Devam ediyor' : 'Beklemede';
+    const statusIcon = task.status === 'completed' ? '✅' : task.status === 'in-progress' ? '🔄' : task.status === 'stopped' ? '⏸️' : '⏸️';
+    const statusText = task.status === 'completed' ? 'Tamamlandı' : task.status === 'in-progress' ? 'Devam ediyor' : task.status === 'stopped' ? 'Durduruldu' : 'Beklemede';
 
     let duration = '';
     if (task.duration) {
@@ -363,9 +397,23 @@ function renderTasks() {
       duration = `${minutes}dk ${seconds}sn`;
     }
 
+    // Butonlar
+    let actions = '';
+    if (task.status === 'in-progress') {
+      actions = `<button class="task-action-btn stop" onclick="event.stopPropagation(); stopTask('${task.id}')" title="Durdur">⏸️</button>`;
+    } else if (task.status === 'stopped' || task.status === 'completed') {
+      actions = `
+        <button class="task-action-btn rollback" onclick="event.stopPropagation(); rollbackTask('${task.id}')" title="Geri Al">↩️</button>
+        <button class="task-action-btn delete" onclick="event.stopPropagation(); deleteTask('${task.id}')" title="Sil">🗑️</button>
+      `;
+    }
+
     return `
       <div class="task-item ${selectedTaskId === task.id ? 'selected' : ''}" onclick="selectTask('${task.id}')">
-        <div class="name">${statusIcon} ${task.title}</div>
+        <div class="task-header">
+          <div class="name">${statusIcon} ${task.title}</div>
+          <div class="task-actions">${actions}</div>
+        </div>
         <div class="status-badge ${task.status}">${statusText}</div>
         ${workspace ? `<div style="font-size: 0.75rem; margin-top: 0.3rem; color: var(--text-secondary);">📍 ${workspace.name}</div>` : ''}
         ${duration ? `<div style="font-size: 0.75rem; margin-top: 0.3rem; color: var(--text-secondary);">⏱️ ${duration}</div>` : ''}
@@ -375,6 +423,30 @@ function renderTasks() {
       </div>
     `;
   }).join('');
+}
+
+// Görevi durdur
+function stopTask(taskId) {
+  if (confirm('Bu görevi durdurmak istediğinize emin misiniz? Agentlar serbest bırakılacak.')) {
+    socket.emit('task:stop', { taskId });
+    addActivity('system', '⏸️ Görev durduruldu');
+  }
+}
+
+// Görevi sil
+function deleteTask(taskId) {
+  if (confirm('Bu görevi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
+    socket.emit('task:delete', { taskId });
+    addActivity('system', '🗑️ Görev silindi');
+  }
+}
+
+// Rollback (değişiklikleri geri al)
+function rollbackTask(taskId) {
+  if (confirm('Bu görevde yapılan kod değişikliklerini geri almak istiyor musunuz? (git restore)')) {
+    socket.emit('task:rollback', { taskId });
+    addActivity('system', '↩️ Rollback başlatıldı...');
+  }
 }
 
 function updateWorkspaceSelect() {

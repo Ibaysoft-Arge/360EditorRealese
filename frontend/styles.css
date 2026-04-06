@@ -1229,3 +1229,74 @@ hr {
   background: rgba(0, 122, 204, 0.2);
   border-left: 2px solid var(--accent-primary);
 }
+
+/* Workspace Toggle */
+.toggle-icon {
+  display: inline-block;
+  margin-right: 0.3rem;
+  font-size: 0.7rem;
+  opacity: 0.7;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-icon:hover {
+  opacity: 1;
+}
+
+.workspace-item .name {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Task Action Buttons */
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.3rem;
+}
+
+.task-actions {
+  display: flex;
+  gap: 0.3rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.task-item:hover .task-actions {
+  opacity: 1;
+}
+
+.task-action-btn {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.task-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+}
+
+.task-action-btn.stop:hover {
+  background: rgba(255, 193, 7, 0.2);
+}
+
+.task-action-btn.rollback:hover {
+  background: rgba(33, 150, 243, 0.2);
+}
+
+.task-action-btn.delete:hover {
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.task-item .status-badge.stopped {
+  background: rgba(255, 152, 0, 0.2);
+  color: #FF9800;
+}

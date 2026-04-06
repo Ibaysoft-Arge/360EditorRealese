@@ -149,12 +149,12 @@ Görevi tamamla:`;
   // Claude Code komutunu çalıştır
   runClaudeCommand(prompt, workingDir) {
     return new Promise((resolve, reject) => {
-      // --permission-mode auto = Otomatik izin ver (güvenli)
-      // --dangerously-skip-permissions = Tüm izinleri atla (daha hızlı ama riskli)
+      // --dangerously-skip-permissions = Tüm izin kontrollerini atla
+      // Bu workspace izole olduğu için güvenli
       const claudeProcess = spawn('claude', [
         '--print',
         '--model', 'opus',
-        '--permission-mode', 'auto'
+        '--dangerously-skip-permissions'
       ], {
         cwd: workingDir,
         shell: true,

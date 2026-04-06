@@ -75,6 +75,28 @@ class TaskManager {
     return Array.from(this.tasks.values()).filter(t => t.workspaceId === workspaceId);
   }
 
+  stopTask(taskId) {
+    const task = this.tasks.get(taskId);
+    if (task && task.status === 'in-progress') {
+      task.status = 'stopped';
+      task.endTime = new Date().toISOString();
+      const start = new Date(task.startTime);
+      const end = new Date(task.endTime);
+      task.duration = Math.floor((end - start) / 1000);
+
+      // DB'ye kaydet
+      this.db.updateTask(taskId, {
+        status: 'stopped',
+        endTime: task.endTime,
+        duration: task.duration
+      });
+
+      this.io.emit('task:updated', task);
+      return task;
+    }
+    return null;
+  }
+
   deleteTask(taskId) {
     this.tasks.delete(taskId);
 
