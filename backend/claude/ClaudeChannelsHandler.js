@@ -8,15 +8,20 @@ class ClaudeChannelsHandler {
   constructor() {
     this.authenticated = false;
     this.memoryManager = new AgentMemoryManager();
+
+    // Claude CLI path'ini belirle
+    const homeDir = os.homedir();
+    this.claudePath = path.join(homeDir, '.local', 'bin', 'claude.exe');
+
     this.checkAuth();
   }
 
   // Claude Code kontrolü - komut çalışıyor mu?
   async checkAuth() {
     return new Promise((resolve) => {
-      const testProcess = spawn('claude', ['--version'], {
-        shell: true,
-        stdio: ['pipe', 'pipe', 'pipe']
+      const testProcess = spawn(this.claudePath, ['--version'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
       });
 
       let output = '';
@@ -176,14 +181,14 @@ Görevi tamamla:`;
     return new Promise((resolve, reject) => {
       // --dangerously-skip-permissions = Tüm izin kontrollerini atla
       // Bu workspace izole olduğu için güvenli
-      const claudeProcess = spawn('claude', [
+      const claudeProcess = spawn(this.claudePath, [
         '--print',
         '--model', 'opus',
         '--dangerously-skip-permissions'
       ], {
         cwd: workingDir,
-        shell: true,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
       });
 
       let output = '';
