@@ -176,9 +176,10 @@ io.on('connection', (socket) => {
       // Yeni taskId ile devam et
       await pmManager.assignTaskToPM(taskData.taskRequest);
     } else {
-      // Normal sohbet
+      // Serbest sohbet - PM'den cevap al
+      const response = await pmManager.chatWithPM(data.message, taskManager.getAllTasks(), agentPoolManager.getAllAgents());
       io.emit('pm:chat-response', {
-        message: 'Merhaba! Görev verdiğinde soruları burada sorarım.'
+        message: response
       });
     }
   });

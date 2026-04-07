@@ -13,6 +13,11 @@ class ClaudeChannelsHandler {
     const homeDir = os.homedir();
     this.claudePath = path.join(homeDir, '.local', 'bin', 'claude.exe');
 
+    // Usage tracking
+    this.totalTokensUsed = 0;
+    this.totalRequests = 0;
+    this.usageHistory = [];
+
     this.checkAuth();
   }
 

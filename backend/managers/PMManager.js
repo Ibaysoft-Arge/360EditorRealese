@@ -382,6 +382,44 @@ class PMManager {
   getTaskHistory() {
     return this.taskHistory;
   }
+
+  // PM ile serbest sohbet (görev çalışırken "ne yaptın?" gibi sorular)
+  async chatWithPM(userMessage, allTasks, allAgents) {
+    try {
+      // Çalışan görevler
+      const activeTasks = allTasks.filter(t => t.status === 'in-progress');
+      const workingAgents = allAgents.filter(a => a.status === 'working');
+
+      // PM'e görev durumunu anlatan prompt
+      const prompt = `Sen bir Product Manager'sın. Patron seninle konuşuyor.
+
+PATRON'UN MESAJI: "${userMessage}"
+
+AKTİF GÖREVLER (${activeTasks.length} tane):
+${activeTasks.map(t => `- "${t.title}" (Durum: ${t.status}, Atanan: ${t.assignedAgents?.map(a => a.name).join(', ') || 'yok'})`).join('\n') || 'Şu an aktif görev yok.'}
+
+ÇALIŞAN AGENTLAR (${workingAgents.length} tane):
+${workingAgents.map(a => `- ${a.name} (${a.role}) - ${a.currentTask || 'çalışıyor'}`).join('\n') || 'Şu an çalışan agent yok.'}
+
+GÖREVIN:
+- Patron'un sorusuna PM olarak cevap ver
+- Eğer durum sorusu ise (ne yaptın, nerede, vs) görev/agent durumunu açıkla
+- Kısa, net ve profesyonel konuş
+- Maksimum 2-3 cümle
+
+CEVAP:`;
+
+      const response = await this.claudeHandler.runClaudeCommand(prompt, process.cwd());
+
+      // Claude'un cevabını temizle
+      const cleanResponse = response.trim();
+
+      return cleanResponse || 'Şu an bir şey yapamıyorum. Görev ver ki çalışayım!';
+    } catch (error) {
+      console.error('❌ PM chat hatası:', error.message);
+      return 'Şu an cevap veremiyorum, bir sorun var gibi.';
+    }
+  }
 }
 
 module.exports = PMManager;
