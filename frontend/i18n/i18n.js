@@ -43,9 +43,24 @@ function changeLanguage(lang) {
     if (typeof initDashboard === 'function') {
       initDashboard();
     }
+
+    // Hakkında metnini güncelle
+    updateAboutText();
   }, 100);
 
   console.log('🌍 Dil değiştirildi:', lang);
+}
+
+// Hakkında metnini güncelle
+function updateAboutText() {
+  const aboutText = document.getElementById('aboutCompanyText');
+  if (aboutText) {
+    const translations = currentLanguage === 'tr' ? tr : en;
+    const companyName = translations.company_name;
+    const aboutTemplate = translations.about_company;
+    const text = aboutTemplate.replace('{company}', `<a href="https://ibaysoft.com" target="_blank" style="color: var(--accent-primary); text-decoration: none;">${companyName}</a>`);
+    aboutText.innerHTML = text;
+  }
 }
 
 // Şu anki dili al

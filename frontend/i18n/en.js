@@ -119,4 +119,8 @@ const en = {
   error_no_task: 'Please enter task description',
   error_claude_auth: 'Claude Code not authenticated!',
   error_no_agents: 'No agents yet, please add agents',
+
+  // About
+  about_company: 'This application is developed by {company}',
+  company_name: 'ibaysoft Software Inc.',
 };

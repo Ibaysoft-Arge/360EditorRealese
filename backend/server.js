@@ -89,6 +89,16 @@ io.on('connection', (socket) => {
     await pmManager.checkClaudeAuth();
   });
 
+  // Claude Model ayarla
+  socket.on('claude:set-model', (data) => {
+    const { model } = data;
+    if (pmManager.claudeHandler.setModel(model)) {
+      console.log(`✅ Claude model ayarlandı: ${model}`);
+    } else {
+      console.warn(`❌ Geçersiz model: ${model}`);
+    }
+  });
+
   // Task Durdur
   socket.on('task:stop', (data) => {
     const { taskId } = data;

@@ -119,4 +119,8 @@ const tr = {
   error_no_task: 'Lütfen görev açıklaması gir',
   error_claude_auth: 'Claude Code ile giriş yapılmamış!',
   error_no_agents: 'Henüz agent yok, lütfen agent ekle',
+
+  // About
+  about_company: 'Bu uygulamayı {company} geliştirmiştir',
+  company_name: 'ibaysoft Yazılım A.Ş.',
 };

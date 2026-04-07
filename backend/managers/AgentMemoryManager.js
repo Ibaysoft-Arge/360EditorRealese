@@ -184,6 +184,12 @@ class AgentMemoryManager {
 
       let memory = this.getAgentMemory(workspacePath, agentId, agentName);
 
+      // UYARI: Memory çok büyükse uyar
+      const MAX_MEMORY_SIZE = 5000; // 5KB max (önerilen)
+      if (memory.length > MAX_MEMORY_SIZE) {
+        console.warn(`⚠️ UYARI: ${agentName} memory'si çok büyük (${Math.round(memory.length/1000)}KB)! Agent'lar yavaş çalışabilir. Önerilen max: 5KB`);
+      }
+
       // Öğrenilen Bilgiler bölümüne ekle
       const timestamp = new Date().toISOString().split('T')[0];
       const newNote = `\n### ${timestamp}\n${note}\n`;
@@ -256,6 +262,13 @@ class AgentMemoryManager {
     try {
       const { agentsPath } = this.ensureMemoryStructure(workspacePath);
       const memoryFile = path.join(agentsPath, `${agentId}-${agentName}.md`);
+
+      // UYARI: Memory çok büyükse uyar
+      const MAX_MEMORY_SIZE = 5000; // 5KB max (önerilen)
+      if (content.length > MAX_MEMORY_SIZE) {
+        console.warn(`⚠️ UYARI: ${agentName} memory'si çok büyük (${Math.round(content.length/1000)}KB)! Agent'lar yavaş çalışabilir. Önerilen max: 5KB`);
+        console.warn(`💡 İPUCU: Sadece önemli özet bilgileri gir. Tüm proje dökümantasyonunu değil!`);
+      }
 
       fs.writeFileSync(memoryFile, content, 'utf-8');
       return true;

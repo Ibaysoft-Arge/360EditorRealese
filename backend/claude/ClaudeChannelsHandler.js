@@ -13,12 +13,26 @@ class ClaudeChannelsHandler {
     const homeDir = os.homedir();
     this.claudePath = path.join(homeDir, '.local', 'bin', 'claude.exe');
 
+    // Model seçimi (default: sonnet - hızlı ve dengeli)
+    this.currentModel = 'sonnet';
+
     // Usage tracking
     this.totalTokensUsed = 0;
     this.totalRequests = 0;
     this.usageHistory = [];
 
     this.checkAuth();
+  }
+
+  // Model değiştir
+  setModel(model) {
+    const validModels = ['opus', 'sonnet', 'haiku'];
+    if (validModels.includes(model)) {
+      this.currentModel = model;
+      console.log(`🤖 Claude model değiştirildi: ${model}`);
+      return true;
+    }
+    return false;
   }
 
   // Claude Code kontrolü - komut çalışıyor mu?
@@ -186,9 +200,11 @@ Görevi tamamla:`;
     return new Promise((resolve, reject) => {
       // --dangerously-skip-permissions = Tüm izin kontrollerini atla
       // Bu workspace izole olduğu için güvenli
+      console.log(`🤖 Claude Code çalıştırılıyor (Model: ${this.currentModel})`);
+
       const claudeProcess = spawn(this.claudePath, [
         '--print',
-        '--model', 'opus',
+        '--model', this.currentModel, // Kullanıcının seçtiği model
         '--dangerously-skip-permissions'
       ], {
         cwd: workingDir,

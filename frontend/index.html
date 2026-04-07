@@ -236,33 +236,26 @@
 
     </div>
 
-    <!-- Settings Modal -->
-    <div id="settingsModal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>⚙️ Ayarlar</h2>
-          <button class="btn-icon" onclick="closeSettings()">✕</button>
-        </div>
-        <div class="modal-body">
+    <!-- Settings Drawer -->
+    <div id="settingsDrawerOverlay" class="settings-drawer-overlay" onclick="closeSettings()"></div>
+    <div id="settingsDrawer" class="settings-drawer">
+      <div class="settings-drawer-header">
+        <h2>⚙️ Ayarlar</h2>
+        <button class="btn-icon" onclick="closeSettings()">✕</button>
+      </div>
 
-          <div class="info-box">
-            <strong>🤖 Claude Code Local Mode</strong>
-            <p style="margin: 0.5rem 0; font-size: 0.9rem;">
-              360 Editor, bilgisayarındaki Claude Code CLI'ı kullanır. API key gerekmez!
-            </p>
+      <!-- Tabs -->
+      <div class="settings-drawer-tabs">
+        <button class="settings-tab active" onclick="switchSettingsTab('general')">🏠 Genel</button>
+        <button class="settings-tab" onclick="switchSettingsTab('claude')">🤖 Claude</button>
+        <button class="settings-tab" onclick="switchSettingsTab('telegram')">📱 Telegram</button>
+        <button class="settings-tab" onclick="switchSettingsTab('about')">ℹ️ Hakkında</button>
+      </div>
 
-            <ol style="margin: 0.5rem 0; padding-left: 1.5rem; font-size: 0.85rem;">
-              <li>Terminal aç (CMD/PowerShell)</li>
-              <li>Komut: <code style="background: #2d2d2d; padding: 2px 6px; border-radius: 3px;">claude login</code></li>
-              <li>Browser'da giriş yap</li>
-              <li>Bu uygulamayı yeniden başlat</li>
-            </ol>
-
-            <p style="margin: 0.5rem 0; font-size: 0.85rem; color: #888;">
-              Durum: <span id="claudeLoginStatus" style="font-weight: bold;">Kontrol ediliyor...</span>
-            </p>
-          </div>
-
+      <!-- Tab Content -->
+      <div class="settings-drawer-content">
+        <!-- Genel Tab -->
+        <div id="settings-general" class="settings-tab-panel active">
           <div class="form-group">
             <label>🌍 Dil / Language</label>
             <select id="languageSelect" onchange="changeLanguage(this.value)">
@@ -281,36 +274,114 @@
           </div>
 
           <div class="form-group">
-            <label>PM Kişiliği</label>
+            <label>💼 PM Kişiliği</label>
             <select id="pmPersonality">
               <option value="sert">Sert (Argo kullanır)</option>
               <option value="nazik">Nazik (Profesyonel)</option>
               <option value="komik">Komik (Esprili)</option>
             </select>
+            <small style="color: #888; font-size: 0.8rem;">Product Manager'ın konuşma tarzı</small>
+          </div>
+        </div>
+
+        <!-- Claude Tab -->
+        <div id="settings-claude" class="settings-tab-panel">
+          <div class="info-box">
+            <strong>🔐 Claude Code Local Mode</strong>
+            <p style="margin: 0.5rem 0; font-size: 0.9rem;">
+              360 Editor, bilgisayarındaki Claude Code CLI'ı kullanır. API key gerekmez!
+            </p>
+
+            <ol style="margin: 0.5rem 0; padding-left: 1.5rem; font-size: 0.85rem;">
+              <li>Terminal aç (CMD/PowerShell)</li>
+              <li>Komut: <code style="background: #2d2d2d; padding: 2px 6px; border-radius: 3px;">claude login</code></li>
+              <li>Browser'da giriş yap</li>
+              <li>Bu uygulamayı yeniden başlat</li>
+            </ol>
+
+            <p style="margin: 0.5rem 0; font-size: 0.85rem; color: #888;">
+              Durum: <span id="claudeLoginStatus" style="font-weight: bold;">Kontrol ediliyor...</span>
+            </p>
           </div>
 
           <div class="form-group">
-            <label>📱 Telegram Bot Token</label>
+            <label>🤖 Claude Model</label>
+            <select id="claudeModel">
+              <option value="opus">🏆 Opus - En Güçlü (Yavaş, Pahalı)</option>
+              <option value="sonnet">⭐ Sonnet 4.5 - Önerilen (Hızlı, Dengeli)</option>
+              <option value="haiku">⚡ Haiku - Basit İşler (Ucuz, Çok Hızlı)</option>
+            </select>
+            <small style="color: #888; font-size: 0.8rem;">
+              • Basit görevler → Haiku<br>
+              • Çoğu görev → Sonnet ⭐<br>
+              • Karmaşık görevler → Opus
+            </small>
+          </div>
+        </div>
+
+        <!-- Telegram Tab -->
+        <div id="settings-telegram" class="settings-tab-panel">
+          <div class="info-box">
+            <strong>📱 Telegram Bildirimleri</strong>
+            <p style="margin: 0.5rem 0; font-size: 0.9rem;">
+              Görev bildirimleri ve PM sorularını Telegram'dan al!
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>🤖 Bot Token</label>
             <input type="text" id="telegramBotToken" placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz">
             <small style="color: #888; font-size: 0.8rem;">@BotFather'dan alacağın token</small>
           </div>
 
           <div class="form-group">
-            <label>💬 Telegram Chat ID</label>
+            <label>💬 Chat ID</label>
             <input type="text" id="telegramChatId" placeholder="123456789">
             <small style="color: #888; font-size: 0.8rem;">@userinfobot'tan öğrenebilirsin</small>
           </div>
 
-          <div class="form-group" style="margin-top: 0.5rem;">
+          <div class="form-group">
             <button class="btn-sm" onclick="testTelegramConnection()" style="width: 100%;">
               🧪 Telegram Bağlantısını Test Et
             </button>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn-primary" onclick="saveSettings()">💾 Kaydet</button>
-          <button class="btn-secondary" onclick="closeSettings()">Kapat</button>
+
+        <!-- Hakkında Tab -->
+        <div id="settings-about" class="settings-tab-panel">
+          <div style="text-align: center; padding: 2rem 0;">
+            <h2 style="margin: 0 0 0.5rem 0;">🏢 360 Editor</h2>
+            <p style="color: var(--text-secondary); margin: 0;">v2.0.0</p>
+            <p style="color: var(--text-secondary); margin: 1rem 0; font-size: 0.9rem;">
+              AI Agent IDE powered by Claude Code
+            </p>
+
+            <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; text-align: left;">
+              <strong>✨ Özellikler:</strong>
+              <ul style="margin: 0.5rem 0; padding-left: 1.5rem; font-size: 0.9rem;">
+                <li>Multi-agent workspace yönetimi</li>
+                <li>PM (Product Manager) koordinasyonu</li>
+                <li>Agent hafıza sistemi (global + project)</li>
+                <li>Telegram bildirimleri</li>
+                <li>Özelleştirilebilir agent rolleri</li>
+                <li>3 Claude model seçeneği</li>
+                <li>Git diff tracking</li>
+                <li>3 tema (Dark/Light/Monokai)</li>
+                <li>İki dil (TR/EN)</li>
+              </ul>
+            </div>
+
+            <p style="font-size: 0.85rem; color: var(--text-secondary);" id="aboutCompanyText">
+              Bu uygulamayı <a href="https://ibaysoft.com" target="_blank" style="color: var(--accent-primary); text-decoration: none;">ibaysoft Yazılım A.Ş.</a> geliştirmiştir
+            </p>
+          </div>
         </div>
+      </div>
+
+      <!-- Footer (Always Visible) -->
+      <div class="settings-drawer-footer">
+        <button class="btn-primary" onclick="saveSettings()" style="flex: 1;">💾 Kaydet</button>
+        <button class="btn-secondary" onclick="closeSettings()" style="flex: 1;">Kapat</button>
       </div>
     </div>
 

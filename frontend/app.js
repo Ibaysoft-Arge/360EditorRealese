@@ -59,6 +59,11 @@ function initSocket() {
     updateConnectionStatus(true);
     addActivity('system', 'Sunucuya bağlanıldı');
 
+    // Socket bağlandıktan sonra Claude model seçimini gönder
+    const claudeModel = localStorage.getItem('claudeModel') || 'sonnet';
+    socket.emit('claude:set-model', { model: claudeModel });
+    console.log('🤖 Claude model ayarı backend\'e gönderildi:', claudeModel);
+
     // Socket bağlandıktan sonra Telegram ayarlarını gönder
     const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
     const telegramChatId = localStorage.getItem('telegramChatId') || '';
@@ -1033,9 +1038,11 @@ function toggleRightSidebar() {
   sidebar.style.display = sidebar.style.display === 'none' ? 'flex' : 'none';
 }
 
-// Settings
+// Settings Drawer
 function openSettings() {
-  document.getElementById('settingsModal').classList.remove('hidden');
+  // Drawer'ı aç
+  document.getElementById('settingsDrawer').classList.add('open');
+  document.getElementById('settingsDrawerOverlay').classList.add('open');
 
   // Mevcut dil seçimini göster
   const currentLang = getCurrentLanguage();
@@ -1048,15 +1055,62 @@ function openSettings() {
   if (document.getElementById('themeSelect')) {
     document.getElementById('themeSelect').value = currentThemeValue;
   }
+
+  // Hakkında metnini güncelle
+  if (typeof updateAboutText === 'function') {
+    updateAboutText();
+  }
 }
 
 function closeSettings() {
-  document.getElementById('settingsModal').classList.add('hidden');
+  // Drawer'ı kapat
+  document.getElementById('settingsDrawer').classList.remove('open');
+  document.getElementById('settingsDrawerOverlay').classList.remove('open');
 }
 
+function switchSettingsTab(tabName) {
+  // Tüm tabları gizle
+  const panels = document.querySelectorAll('.settings-tab-panel');
+  panels.forEach(panel => panel.classList.remove('active'));
+
+  // Tüm tab butonlarından active kaldır
+  const tabs = document.querySelectorAll('.settings-tab');
+  tabs.forEach(tab => tab.classList.remove('active'));
+
+  // Seçili tab'ı göster
+  const selectedPanel = document.getElementById(`settings-${tabName}`);
+  if (selectedPanel) {
+    selectedPanel.classList.add('active');
+  }
+
+  // Seçili tab butonunu active yap
+  event.target.classList.add('active');
+}
+
+window.switchSettingsTab = switchSettingsTab;
+
 function saveSettings() {
+  // Tema kaydet
+  const theme = document.getElementById('themeSelect').value;
+  if (theme && typeof changeTheme === 'function') {
+    changeTheme(theme);
+  }
+
+  // Dil kaydet
+  const language = document.getElementById('languageSelect').value;
+  if (language && typeof changeLanguage === 'function') {
+    changeLanguage(language);
+  }
+
   const personality = document.getElementById('pmPersonality').value;
   localStorage.setItem('pmPersonality', personality);
+
+  // Claude Model seçimi
+  const claudeModel = document.getElementById('claudeModel').value;
+  localStorage.setItem('claudeModel', claudeModel);
+
+  // Backend'e model seçimini gönder
+  socket.emit('claude:set-model', { model: claudeModel });
 
   // Telegram ayarları
   const telegramBotToken = document.getElementById('telegramBotToken').value;
@@ -1083,6 +1137,12 @@ function loadSettings() {
   const personality = localStorage.getItem('pmPersonality') || 'sert';
   if (document.getElementById('pmPersonality')) {
     document.getElementById('pmPersonality').value = personality;
+  }
+
+  // Claude Model seçimi
+  const claudeModel = localStorage.getItem('claudeModel') || 'sonnet'; // Varsayılan: Sonnet (hızlı ve dengeli)
+  if (document.getElementById('claudeModel')) {
+    document.getElementById('claudeModel').value = claudeModel;
   }
 
   // Telegram ayarlarını yükle (backend'e gönderme socket.on('connect')'te yapılıyor)
