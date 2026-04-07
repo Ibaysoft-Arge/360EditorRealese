@@ -58,6 +58,17 @@ function initSocket() {
   socket.on('connect', () => {
     updateConnectionStatus(true);
     addActivity('system', 'Sunucuya bağlanıldı');
+
+    // Socket bağlandıktan sonra Telegram ayarlarını gönder
+    const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
+    const telegramChatId = localStorage.getItem('telegramChatId') || '';
+    if (telegramBotToken && telegramChatId) {
+      socket.emit('telegram:config', {
+        botToken: telegramBotToken,
+        chatId: telegramChatId
+      });
+      console.log('📱 Telegram ayarları backend\'e gönderildi (socket connect)');
+    }
   });
 
   socket.on('disconnect', () => {
@@ -632,6 +643,7 @@ function renderWorkspaces() {
             ${workspaceTasks.length > 0 ? `<span style="font-size: 0.75rem; opacity: 0.7;">(${workspaceTasks.length})</span>` : ''}
           </div>
           <div class="path">${ws.path}</div>
+          <button class="btn-icon-sm" onclick="event.stopPropagation(); deleteWorkspace('${ws.id}', '${ws.name}')" title="Workspace'i sil" style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--error); color: white;">🗑️</button>
         </div>
         ${workspaceTasks.length > 0 && isExpanded ? `
           <div class="workspace-tasks">
@@ -676,6 +688,24 @@ function toggleWorkspaceTasks(workspaceId) {
   renderWorkspaces();
 }
 
+function deleteWorkspace(workspaceId, workspaceName) {
+  if (confirm(`"${workspaceName}" workspace'ini silmek istediğinden emin misin?\n\nBu işlem geri alınamaz!`)) {
+    socket.emit('workspace:delete', workspaceId);
+    addActivity('system', `🗑️ "${workspaceName}" workspace silindi`);
+  }
+}
+
+window.deleteWorkspace = deleteWorkspace;
+
+function deleteAgent(agentId, agentName) {
+  if (confirm(`"${agentName}" agent'ını silmek istediğinden emin misin?\n\nBu işlem geri alınamaz!`)) {
+    socket.emit('agent:delete', agentId);
+    addActivity('system', `🗑️ "${agentName}" agent silindi`);
+  }
+}
+
+window.deleteAgent = deleteAgent;
+
 function renderAgents() {
   const container = document.getElementById('agentList');
 
@@ -715,7 +745,9 @@ function renderAgents() {
     }
 
     return `
-      <div class="agent-item">
+      <div class="agent-item" style="position: relative;">
+        <button class="btn-icon-sm" onclick="deleteAgent('${agent.id}', '${agent.name}')" title="Agent'ı sil" style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--error); color: white;">🗑️</button>
+
         <div class="name">${agent.name}</div>
         <div class="role">${getRoleText(agent.role)}</div>
         <span class="status ${agent.status}">${agent.status}</span>
@@ -1053,7 +1085,7 @@ function loadSettings() {
     document.getElementById('pmPersonality').value = personality;
   }
 
-  // Telegram ayarlarını yükle
+  // Telegram ayarlarını yükle (backend'e gönderme socket.on('connect')'te yapılıyor)
   const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
   const telegramChatId = localStorage.getItem('telegramChatId') || '';
   if (document.getElementById('telegramBotToken')) {
@@ -1063,7 +1095,7 @@ function loadSettings() {
     document.getElementById('telegramChatId').value = telegramChatId;
   }
 
-  // Dil ayarını yükle
+  // Dil ayarını yükle VE UYGULA
   const lang = localStorage.getItem('360editor-language') || 'tr';
   if (document.getElementById('languageSelect')) {
     document.getElementById('languageSelect').value = lang;
@@ -1072,13 +1104,26 @@ function loadSettings() {
     document.getElementById('topLanguageSelect').value = lang;
   }
 
-  // Tema ayarını yükle
+  // ÖNEMLI: Dili uygula (çevirileri yükle)
+  if (typeof changeLanguage === 'function') {
+    changeLanguage(lang);
+  }
+
+  // Tema ayarını yükle VE UYGULA
   const theme = localStorage.getItem('360editor-theme') || 'dark';
   if (document.getElementById('themeSelect')) {
     document.getElementById('themeSelect').value = theme;
   }
   if (document.getElementById('topThemeSelect')) {
     document.getElementById('topThemeSelect').value = theme;
+  }
+
+  // ÖNEMLI: Tema'yı DOM'a uygula
+  if (typeof changeTheme === 'function') {
+    changeTheme(theme);
+  } else {
+    // changeTheme henüz yüklenmemişse, direkt uygula
+    document.documentElement.setAttribute('data-theme', theme);
   }
 }
 

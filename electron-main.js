@@ -33,16 +33,30 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'electron-preload.js')
+      preload: path.join(__dirname, 'electron-preload.js'),
+      webSecurity: true
     },
     autoHideMenuBar: true,
     frame: true
   });
 
-  // Backend hazır olana kadar bekle
-  setTimeout(() => {
-    mainWindow.loadURL('http://localhost:3360');
-  }, 2000);
+  // Backend hazır olana kadar bekle (health check)
+  const checkBackend = async () => {
+    try {
+      const response = await fetch('http://localhost:3360/api/health');
+      if (response.ok) {
+        console.log('✅ Backend hazır, UI yükleniyor...');
+        mainWindow.loadURL('http://localhost:3360');
+      } else {
+        throw new Error('Backend not ready');
+      }
+    } catch (error) {
+      console.log('⏳ Backend bekleniyor...');
+      setTimeout(checkBackend, 500);
+    }
+  };
+
+  setTimeout(checkBackend, 1000);
 
   // DevTools (development için)
   mainWindow.webContents.openDevTools();
