@@ -647,9 +647,20 @@ function renderWorkspaces() {
           <div class="workspace-tasks">
             ${workspaceTasks.map(task => {
               const statusIcon = task.status === 'completed' ? '✅' : task.status === 'in-progress' ? '🔄' : '⏸️';
+
+              // Aksiyon butonları
+              let actions = '';
+              if (task.status === 'in-progress') {
+                actions = `<button class="icon-btn" onclick="event.stopPropagation(); stopTask('${task.id}')" title="Durdur">⏸️</button>`;
+              }
+              actions += `<button class="icon-btn" onclick="event.stopPropagation(); deleteTask('${task.id}')" title="Sil">🗑️</button>`;
+
               return `
-                <div class="workspace-task-item ${selectedTaskId === task.id ? 'selected' : ''}" onclick="event.stopPropagation(); selectTask('${task.id}')">
-                  ${statusIcon} ${task.title.substring(0, 40)}${task.title.length > 40 ? '...' : ''}
+                <div class="workspace-task-item ${selectedTaskId === task.id ? 'selected' : ''}">
+                  <div class="task-content" onclick="event.stopPropagation(); selectTask('${task.id}')">
+                    ${statusIcon} ${task.title.substring(0, 30)}${task.title.length > 30 ? '...' : ''}
+                  </div>
+                  <div class="task-mini-actions">${actions}</div>
                 </div>
               `;
             }).join('')}
@@ -1853,6 +1864,31 @@ function renderTasksView() {
               style="padding: 0.4rem 0.8rem; background: var(--accent-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"
               title="Dashboard'da görüntüle">
               📊 Aktivite
+            </button>
+            ${task.status === 'in-progress' ? `
+              <button
+                onclick="stopTask('${task.id}')"
+                class="btn-sm"
+                style="padding: 0.4rem 0.8rem; background: var(--warning); color: #000; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"
+                title="Görevi durdur">
+                ⏸️ Durdur
+              </button>
+            ` : ''}
+            ${task.status === 'stopped' || task.status === 'completed' ? `
+              <button
+                onclick="rollbackTask('${task.id}')"
+                class="btn-sm"
+                style="padding: 0.4rem 0.8rem; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"
+                title="Değişiklikleri geri al">
+                ↩️ Geri Al
+              </button>
+            ` : ''}
+            <button
+              onclick="deleteTask('${task.id}')"
+              class="btn-sm"
+              style="padding: 0.4rem 0.8rem; background: rgba(244, 67, 54, 0.8); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"
+              title="Görevi sil">
+              🗑️ Sil
             </button>
             <span class="task-view-status ${task.status}">${getStatusText(task.status)}</span>
           </div>

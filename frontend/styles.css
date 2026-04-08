@@ -1544,11 +1544,34 @@ hr {
 }
 
 .workspace-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 0.5rem;
   font-size: 0.85rem;
-  cursor: pointer;
   transition: background 0.2s;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 0.5rem;
+}
+
+.workspace-task-item .task-content {
+  flex: 1;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-task-item .task-mini-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.workspace-task-item:hover .task-mini-actions {
+  opacity: 1;
 }
 
 .workspace-task-item:hover {
@@ -1558,6 +1581,10 @@ hr {
 .workspace-task-item.selected {
   background: rgba(0, 122, 204, 0.2);
   border-left: 2px solid var(--accent-primary);
+}
+
+.workspace-task-item.selected .task-mini-actions {
+  opacity: 1;
 }
 
 /* Workspace Toggle */
