@@ -135,12 +135,27 @@ body {
   display: grid;
   grid-template-columns: 250px 1fr 320px;
   overflow: hidden;
+  transition: grid-template-columns 0.3s ease;
+}
+
+.main-layout.left-collapsed {
+  grid-template-columns: 0px 1fr 320px;
+}
+
+.main-layout.right-collapsed {
+  grid-template-columns: 250px 1fr 0px;
+}
+
+.main-layout.both-collapsed {
+  grid-template-columns: 0px 1fr 0px;
 }
 
 /* Left Sidebar */
 .left-sidebar {
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
+  overflow: hidden;
+  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -361,6 +376,13 @@ body {
 /* Tasks View */
 .tasks-view {
   padding: 2rem;
+  overflow-x: hidden; /* Yatay scroll olmasın */
+  max-width: 100%;
+}
+
+.tasks-view-content {
+  overflow-x: hidden; /* Yatay scroll olmasın */
+  max-width: 100%;
 }
 
 .tasks-view-header {
@@ -427,6 +449,8 @@ body {
   border-radius: 8px;
   padding: 1.5rem;
   transition: all 0.2s;
+  overflow: hidden; /* İçerik taşmasın */
+  word-wrap: break-word; /* Uzun kelimeler kırılsın */
 }
 
 .task-view-card:hover {
@@ -439,6 +463,8 @@ body {
   justify-content: space-between;
   align-items: start;
   margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap; /* Taşarsa alta geçsin */
 }
 
 .task-view-title {
@@ -446,6 +472,7 @@ body {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
+  word-break: break-word; /* Uzun kelimeler kırılsın */
 }
 
 .task-view-meta {
@@ -454,6 +481,7 @@ body {
   font-size: 0.85rem;
   color: var(--text-secondary);
   margin-bottom: 1rem;
+  flex-wrap: wrap; /* Taşarsa alta geçsin */
 }
 
 .task-view-description {
@@ -508,6 +536,8 @@ body {
   border-radius: 6px;
   border: 1px solid var(--border-color);
   transition: all 0.2s;
+  overflow: hidden; /* İçerik taşmasın */
+  max-width: 100%; /* Genişlik sınırı */
 }
 
 .retry-notes-container:focus-within {
@@ -725,6 +755,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: all 0.3s ease;
 }
 
 .sidebar-header {
@@ -872,6 +903,21 @@ body {
 .btn-icon:hover {
   color: var(--text-primary);
   background: var(--bg-elevated);
+}
+
+/* Sidebar Toggle Buttons */
+.sidebar-toggle {
+  padding: 0.5rem 0.7rem !important;
+  background: var(--bg-tertiary) !important;
+  border-radius: 4px;
+  font-size: 1rem !important;
+  transition: all 0.2s;
+}
+
+.sidebar-toggle:hover {
+  background: var(--accent-primary) !important;
+  color: white !important;
+  transform: scale(1.05);
 }
 
 .btn-icon-sm {

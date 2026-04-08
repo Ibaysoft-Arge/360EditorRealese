@@ -31,6 +31,14 @@
           <span class="status-text">Kontrol ediliyor...</span>
         </div>
 
+        <!-- Sidebar Toggle Butonları -->
+        <button class="btn-icon sidebar-toggle" onclick="toggleLeftSidebar()" title="Sol Panel Aç/Kapat" id="leftSidebarToggle">
+          ◧
+        </button>
+        <button class="btn-icon sidebar-toggle" onclick="toggleRightSidebar()" title="Sağ Panel Aç/Kapat" id="rightSidebarToggle">
+          ◨
+        </button>
+
         <!-- Tema Seçici -->
         <select class="top-selector" id="topThemeSelect" onchange="changeTheme(this.value)" title="Tema">
           <option value="dark">🌙 Dark</option>

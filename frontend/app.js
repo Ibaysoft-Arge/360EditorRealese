@@ -19,6 +19,7 @@ window.tasks = tasks;
 window.addEventListener('DOMContentLoaded', () => {
   initSocket();
   loadSettings();
+  loadSidebarStates(); // Sidebar durumlarını yükle
   setupEventListeners();
   populateRoleDropdown(); // Custom rolleri yükle
 
@@ -1036,9 +1037,71 @@ function openPMPanel() {
   document.getElementById('rightSidebar').scrollIntoView({ behavior: 'smooth' });
 }
 
+// Sol sidebar aç/kapat
+function toggleLeftSidebar() {
+  const mainLayout = document.querySelector('.main-layout');
+  const isLeftCollapsed = mainLayout.classList.contains('left-collapsed');
+  const isRightCollapsed = mainLayout.classList.contains('right-collapsed');
+
+  if (isLeftCollapsed) {
+    // Sol sidebar'ı aç
+    mainLayout.classList.remove('left-collapsed');
+    if (isRightCollapsed) {
+      mainLayout.classList.remove('both-collapsed');
+      mainLayout.classList.add('right-collapsed');
+    }
+  } else {
+    // Sol sidebar'ı kapat
+    mainLayout.classList.add('left-collapsed');
+    if (isRightCollapsed) {
+      mainLayout.classList.add('both-collapsed');
+      mainLayout.classList.remove('right-collapsed');
+    }
+  }
+
+  // LocalStorage'a kaydet
+  localStorage.setItem('leftSidebarCollapsed', !isLeftCollapsed);
+}
+
+// Sağ sidebar aç/kapat
 function toggleRightSidebar() {
-  const sidebar = document.getElementById('rightSidebar');
-  sidebar.style.display = sidebar.style.display === 'none' ? 'flex' : 'none';
+  const mainLayout = document.querySelector('.main-layout');
+  const isLeftCollapsed = mainLayout.classList.contains('left-collapsed');
+  const isRightCollapsed = mainLayout.classList.contains('right-collapsed');
+
+  if (isRightCollapsed) {
+    // Sağ sidebar'ı aç
+    mainLayout.classList.remove('right-collapsed');
+    if (isLeftCollapsed) {
+      mainLayout.classList.remove('both-collapsed');
+      mainLayout.classList.add('left-collapsed');
+    }
+  } else {
+    // Sağ sidebar'ı kapat
+    mainLayout.classList.add('right-collapsed');
+    if (isLeftCollapsed) {
+      mainLayout.classList.add('both-collapsed');
+      mainLayout.classList.remove('left-collapsed');
+    }
+  }
+
+  // LocalStorage'a kaydet
+  localStorage.setItem('rightSidebarCollapsed', !isRightCollapsed);
+}
+
+// Sidebar durumlarını yükle (uygulama başlatınca)
+function loadSidebarStates() {
+  const leftCollapsed = localStorage.getItem('leftSidebarCollapsed') === 'true';
+  const rightCollapsed = localStorage.getItem('rightSidebarCollapsed') === 'true';
+  const mainLayout = document.querySelector('.main-layout');
+
+  if (leftCollapsed && rightCollapsed) {
+    mainLayout.classList.add('both-collapsed');
+  } else if (leftCollapsed) {
+    mainLayout.classList.add('left-collapsed');
+  } else if (rightCollapsed) {
+    mainLayout.classList.add('right-collapsed');
+  }
 }
 
 // Settings Drawer
@@ -1741,20 +1804,11 @@ function renderTasksView() {
               <span>⏱️ Süre: ${duration}</span>
             </div>
           </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            ${task.status === 'completed' || task.status === 'stopped' ? `
-              <button
-                onclick="retryTask('${task.id}')"
-                class="btn-sm"
-                style="padding: 0.4rem 0.8rem; background: var(--warning); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;"
-                title="Görevi tekrar çalıştır">
-                🔄 Tekrar Çalıştır
-              </button>
-            ` : ''}
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
             <button
               onclick="viewTaskActivity('${task.id}')"
               class="btn-sm"
-              style="padding: 0.4rem 0.8rem; background: var(--accent-primary); color: white; border: none; border-radius: 4px; cursor: pointer;"
+              style="padding: 0.4rem 0.8rem; background: var(--accent-primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"
               title="Dashboard'da görüntüle">
               📊 Aktivite
             </button>
@@ -1784,32 +1838,55 @@ function renderTasksView() {
 
         ${task.status === 'completed' || task.status === 'stopped' ? `
           <div class="retry-notes-container">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-              <label style="font-weight: 600; color: var(--text-primary); font-size: 0.9rem;">
-                📝 Tekrar çalıştırma için notlar (isteğe bağlı)
-              </label>
-              <button
-                onclick="clearRetryNotes('${task.id}')"
-                class="btn-sm"
-                style="padding: 0.3rem 0.6rem; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 0.75rem;"
-                title="Notları temizle">
-                🗑️ Temizle
-              </button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 2px solid var(--border-color);">
+              <div>
+                <div style="font-weight: 700; color: var(--accent-primary); font-size: 1.1rem; margin-bottom: 0.3rem;">
+                  🔄 Görevi Tekrar Çalıştır
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                  Aşağıya not yaz ve "Tekrar Çalıştır" butonuna bas
+                </div>
+              </div>
             </div>
             <textarea
               id="retryNotes_${task.id}"
               class="retry-notes-textarea"
-              placeholder="Önceki çalışmada neler eksikti veya hatalıydı? Örnek:&#10;- Login sayfasında şifre göster butonu çalışmıyordu, düzelt&#10;- API endpoint'lerinde rate limiting ekle&#10;- Test coverage'ı %80'e çıkar"
+              placeholder="📝 Önceki çalışmada neler eksikti veya hatalıydı? (isteğe bağlı)&#10;&#10;Örnek:&#10;• Login sayfasında şifre göster butonu çalışmıyordu, düzelt&#10;• API endpoint'lerinde rate limiting ekle&#10;• Test coverage'ı %80'e çıkar&#10;&#10;Not yazmazsan görev aynen tekrar çalışır."
+              oninput="saveRetryNotes('${task.id}')"
             ></textarea>
-            <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.5rem;">
-              <span>💡</span>
-              <span>Bu notlar PM'e iletilir ve agent'lar önceki hatalardan kaçınır.</span>
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <button
+                onclick="retryTask('${task.id}')"
+                class="btn-primary"
+                style="flex: 1 1 auto; min-width: 200px; padding: 0.8rem 1.5rem; background: var(--warning); color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
+                title="Görevi tekrar çalıştır">
+                🔄 Tekrar Çalıştır
+              </button>
+              <button
+                onclick="clearRetryNotes('${task.id}')"
+                class="btn-sm"
+                style="padding: 0.8rem 1rem; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;"
+                title="Notları temizle">
+                🗑️ Temizle
+              </button>
+            </div>
+            <div style="margin-top: 0.8rem; padding: 0.8rem; background: rgba(0, 122, 204, 0.1); border-left: 3px solid var(--accent-primary); border-radius: 4px; font-size: 0.8rem; color: var(--text-secondary);">
+              💡 <strong>İpucu:</strong> Bu notlar otomatik kaydedilir ve PM'e iletilir. Agent'lar önceki hatalardan kaçınarak işi daha iyi yapar.
             </div>
           </div>
         ` : ''}
       </div>
     `;
   }).join('');
+
+  // Notları yükle (DOM render olduktan sonra)
+  setTimeout(() => {
+    sortedTasks.forEach(task => {
+      if (task.status === 'completed' || task.status === 'stopped') {
+        loadRetryNotes(task.id);
+      }
+    });
+  }, 100);
 }
 
 function getStatusText(status) {
@@ -1919,11 +1996,32 @@ function retryTask(taskId) {
   }
 }
 
+// Tekrar çalıştırma notlarını kaydet (localStorage)
+function saveRetryNotes(taskId) {
+  const notesTextarea = document.getElementById(`retryNotes_${taskId}`);
+  if (notesTextarea) {
+    const notes = notesTextarea.value;
+    localStorage.setItem(`retryNotes_${taskId}`, notes);
+  }
+}
+
+// Tekrar çalıştırma notlarını yükle (localStorage'dan)
+function loadRetryNotes(taskId) {
+  const savedNotes = localStorage.getItem(`retryNotes_${taskId}`);
+  if (savedNotes) {
+    const notesTextarea = document.getElementById(`retryNotes_${taskId}`);
+    if (notesTextarea) {
+      notesTextarea.value = savedNotes;
+    }
+  }
+}
+
 // Tekrar çalıştırma notlarını temizle
 function clearRetryNotes(taskId) {
   const notesTextarea = document.getElementById(`retryNotes_${taskId}`);
   if (notesTextarea) {
     notesTextarea.value = '';
+    localStorage.removeItem(`retryNotes_${taskId}`);
     showNotification('🗑️ Temizlendi', 'Notlar temizlendi');
   }
 }
@@ -1933,4 +2031,8 @@ window.renderTasksView = renderTasksView;
 window.viewTaskActivity = viewTaskActivity;
 window.filterTasksView = filterTasksView;
 window.retryTask = retryTask;
+window.saveRetryNotes = saveRetryNotes;
+window.loadRetryNotes = loadRetryNotes;
 window.clearRetryNotes = clearRetryNotes;
+window.toggleLeftSidebar = toggleLeftSidebar;
+window.toggleRightSidebar = toggleRightSidebar;
