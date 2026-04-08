@@ -4,25 +4,41 @@ let pmConversations = {};
 let currentFilter = 'all';
 let currentTaskFilter = null;
 
+// Global olarak erişilebilir yap (debug için)
+if (typeof window !== 'undefined') {
+  window.activityLog = activityLog;
+  window.pmConversations = pmConversations;
+}
+
 // LocalStorage'dan yükle
 function loadDashboardData() {
   const savedLogs = localStorage.getItem('activityLog');
   const savedConversations = localStorage.getItem('pmConversations');
 
+  console.log('🔍 loadDashboardData çağrıldı');
+  console.log('📦 localStorage activityLog:', savedLogs ? `${savedLogs.length} karakter` : 'BOŞ');
+  console.log('📦 localStorage pmConversations:', savedConversations ? `${savedConversations.length} karakter` : 'BOŞ');
+
   if (savedLogs) {
     try {
       activityLog = JSON.parse(savedLogs);
+      console.log('✅ activityLog parse edildi:', activityLog.length, 'adet');
     } catch (e) {
-      console.error('Activity log parse hatası:', e);
+      console.error('❌ Activity log parse hatası:', e);
     }
+  } else {
+    console.warn('⚠️ localStorage\'da activityLog bulunamadı!');
   }
 
   if (savedConversations) {
     try {
       pmConversations = JSON.parse(savedConversations);
+      console.log('✅ pmConversations parse edildi:', Object.keys(pmConversations).length, 'adet');
     } catch (e) {
-      console.error('PM conversations parse hatası:', e);
+      console.error('❌ PM conversations parse hatası:', e);
     }
+  } else {
+    console.warn('⚠️ localStorage\'da pmConversations bulunamadı!');
   }
 }
 
@@ -64,6 +80,7 @@ function addActivityLog(type, message, data = {}) {
     activityLog = activityLog.slice(0, 100);
   }
 
+  console.log('➕ Aktivite eklendi:', message.substring(0, 50), '... Total:', activityLog.length);
   saveDashboardData(); // LocalStorage'a kaydet
   renderActivityTimeline();
 }
@@ -74,6 +91,7 @@ function addPMConversation(taskId, taskName, from, message) {
       taskName: taskName,
       messages: []
     };
+    console.log('➕ Yeni PM konuşması başlatıldı:', taskName);
   }
 
   pmConversations[taskId].messages.push({
@@ -82,6 +100,7 @@ function addPMConversation(taskId, taskName, from, message) {
     timestamp: new Date().toISOString()
   });
 
+  console.log('💬 PM mesajı eklendi:', from, '→', message.substring(0, 30), '... TaskID:', taskId);
   saveDashboardData(); // LocalStorage'a kaydet
   renderPMConversations();
 }
