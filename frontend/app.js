@@ -51,6 +51,16 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Window kapanmadan önce localStorage durumunu logla
+window.addEventListener('beforeunload', () => {
+  console.log('🚪 Window kapanıyor - localStorage durumu:');
+  console.log('   activityLog:', localStorage.getItem('activityLog') ? 'VAR' : 'YOK');
+  console.log('   pmConversations:', localStorage.getItem('pmConversations') ? 'VAR' : 'YOK');
+  console.log('   360editor-theme:', localStorage.getItem('360editor-theme') || 'YOK');
+  console.log('   telegramBotToken:', localStorage.getItem('telegramBotToken') ? 'VAR' : 'YOK');
+  console.log('   telegramChatId:', localStorage.getItem('telegramChatId') ? 'VAR' : 'YOK');
+});
+
 // Socket.IO
 function initSocket() {
   socket = io('http://localhost:3360');
@@ -68,12 +78,18 @@ function initSocket() {
     // Socket bağlandıktan sonra Telegram ayarlarını gönder
     const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
     const telegramChatId = localStorage.getItem('telegramChatId') || '';
+    console.log('📱 socket.on(connect) - localStorage\'dan okunan:', {
+      token: telegramBotToken ? `${telegramBotToken.substring(0, 10)}...` : 'BOŞ',
+      chatId: telegramChatId || 'BOŞ'
+    });
     if (telegramBotToken && telegramChatId) {
       socket.emit('telegram:config', {
         botToken: telegramBotToken,
         chatId: telegramChatId
       });
-      console.log('📱 Telegram ayarları backend\'e gönderildi (socket connect)');
+      console.log('✅ Telegram ayarları backend\'e gönderildi (socket connect)');
+    } else {
+      console.warn('⚠️ Telegram ayarları eksik - backend\'e gönderilmedi!');
     }
   });
 
@@ -446,16 +462,19 @@ function setupEventListeners() {
 
   // Keyboard Shortcuts
   document.addEventListener('keydown', (e) => {
-    // Modal açıksa bazı kısayolları devre dışı bırak
-    const modalsOpen = !document.getElementById('settingsModal').classList.contains('hidden') ||
-                      !document.getElementById('agentMemoryModal').classList.contains('hidden');
+    // Modal/Drawer açıksa bazı kısayolları devre dışı bırak
+    const settingsDrawer = document.getElementById('settingsDrawer');
+    const agentMemoryModal = document.getElementById('agentMemoryModal');
 
-    // Esc - Modal kapat
+    const modalsOpen = (settingsDrawer && settingsDrawer.classList.contains('open')) ||
+                      (agentMemoryModal && !agentMemoryModal.classList.contains('hidden'));
+
+    // Esc - Modal/Drawer kapat
     if (e.key === 'Escape') {
-      if (!document.getElementById('settingsModal').classList.contains('hidden')) {
+      if (settingsDrawer && settingsDrawer.classList.contains('open')) {
         closeSettings();
       }
-      if (!document.getElementById('agentMemoryModal').classList.contains('hidden')) {
+      if (agentMemoryModal && !agentMemoryModal.classList.contains('hidden')) {
         closeAgentMemoryModal();
       }
       return;
@@ -1153,13 +1172,20 @@ function openSettings() {
   }
 
   // Telegram ayarlarını yükle
+  console.log('📱 openSettings: Telegram ayarları localStorage\'dan yükleniyor...');
   const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
   const telegramChatId = localStorage.getItem('telegramChatId') || '';
+  console.log('📱 localStorage\'dan okunan:', {
+    token: telegramBotToken ? `${telegramBotToken.substring(0, 10)}...` : 'BOŞ',
+    chatId: telegramChatId || 'BOŞ'
+  });
   if (document.getElementById('telegramBotToken')) {
     document.getElementById('telegramBotToken').value = telegramBotToken;
+    console.log('✅ Token input\'a yazıldı');
   }
   if (document.getElementById('telegramChatId')) {
     document.getElementById('telegramChatId').value = telegramChatId;
+    console.log('✅ ChatId input\'a yazıldı');
   }
 
   // PM Personality'yi yükle
@@ -1210,33 +1236,57 @@ function switchSettingsTab(tabName) {
 window.switchSettingsTab = switchSettingsTab;
 
 function saveSettings() {
+  console.log('🔧 saveSettings() çağrıldı');
+
   // Tema kaydet
   const theme = document.getElementById('themeSelect').value;
+  console.log('🎨 Tema:', theme);
   if (theme && typeof changeTheme === 'function') {
     changeTheme(theme);
   }
 
   // Dil kaydet
   const language = document.getElementById('languageSelect').value;
+  console.log('🌍 Dil:', language);
   if (language && typeof changeLanguage === 'function') {
     changeLanguage(language);
   }
 
   const personality = document.getElementById('pmPersonality').value;
+  console.log('😎 PM Personality:', personality);
   localStorage.setItem('pmPersonality', personality);
 
   // Claude Model seçimi
   const claudeModel = document.getElementById('claudeModel').value;
+  console.log('🤖 Claude Model:', claudeModel);
   localStorage.setItem('claudeModel', claudeModel);
 
   // Backend'e model seçimini gönder
   socket.emit('claude:set-model', { model: claudeModel });
 
   // Telegram ayarları
-  const telegramBotToken = document.getElementById('telegramBotToken').value;
-  const telegramChatId = document.getElementById('telegramChatId').value;
+  const telegramBotTokenInput = document.getElementById('telegramBotToken');
+  const telegramChatIdInput = document.getElementById('telegramChatId');
+
+  console.log('📱 Telegram input elementleri:', {
+    tokenInput: telegramBotTokenInput ? 'VAR' : 'YOK',
+    chatIdInput: telegramChatIdInput ? 'VAR' : 'YOK'
+  });
+
+  const telegramBotToken = telegramBotTokenInput ? telegramBotTokenInput.value : '';
+  const telegramChatId = telegramChatIdInput ? telegramChatIdInput.value : '';
+
+  console.log('💾 Telegram ayarları kaydediliyor:', {
+    token: telegramBotToken ? `${telegramBotToken.substring(0, 10)}...` : 'BOŞ',
+    chatId: telegramChatId || 'BOŞ'
+  });
+
   localStorage.setItem('telegramBotToken', telegramBotToken);
   localStorage.setItem('telegramChatId', telegramChatId);
+
+  console.log('✅ Telegram ayarları localStorage\'a kaydedildi');
+  console.log('🔍 Kontrol: localStorage.getItem(telegramBotToken):', localStorage.getItem('telegramBotToken'));
+  console.log('🔍 Kontrol: localStorage.getItem(telegramChatId):', localStorage.getItem('telegramChatId'));
 
   // Backend'e telegram ayarlarını gönder
   if (telegramBotToken && telegramChatId) {

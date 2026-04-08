@@ -34,7 +34,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'electron-preload.js'),
-      webSecurity: true
+      webSecurity: true,
+      partition: 'persist:360editor' // localStorage'ı persist et
     },
     autoHideMenuBar: true,
     frame: true
