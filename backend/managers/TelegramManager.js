@@ -88,15 +88,16 @@ class TelegramManager {
     return await this.sendMessage(message);
   }
 
-  async notifyTaskCompleted(taskTitle, workspaceName, duration) {
+  async notifyTaskCompleted(taskTitle, workspaceName, duration, report = null) {
     const durationText = duration ? `⏱️ <b>Süre:</b> ${Math.floor(duration / 1000)}s\n` : '';
+    const reportText = report ? `\n\n📄 <b>DETAYLI RAPOR:</b>${report}` : '';
 
     const message = `
 ✅ <b>Görev Tamamlandı!</b>
 
 📋 <b>Görev:</b> ${taskTitle}
 📁 <b>Workspace:</b> ${workspaceName}
-${durationText}⏰ <b>Zaman:</b> ${new Date().toLocaleString('tr-TR')}
+${durationText}⏰ <b>Zaman:</b> ${new Date().toLocaleString('tr-TR')}${reportText}
     `.trim();
 
     return await this.sendMessage(message);

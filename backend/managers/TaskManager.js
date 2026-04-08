@@ -27,6 +27,7 @@ class TaskManager {
       startTime: new Date().toISOString(),
       endTime: null,
       duration: null,
+      result: null, // Agent'ların raporu buraya
       createdAt: new Date().toISOString()
     };
 
@@ -40,7 +41,7 @@ class TaskManager {
     return task;
   }
 
-  updateTaskStatus(taskId, status) {
+  updateTaskStatus(taskId, status, result = null) {
     const task = this.tasks.get(taskId);
     if (task) {
       task.status = status;
@@ -52,11 +53,16 @@ class TaskManager {
         task.duration = Math.floor((end - start) / 1000); // saniye
       }
 
+      if (result) {
+        task.result = result;
+      }
+
       // DB'ye kaydet
       this.db.updateTask(taskId, {
         status: task.status,
         endTime: task.endTime,
-        duration: task.duration
+        duration: task.duration,
+        result: task.result
       });
 
       this.io.emit('task:updated', task);

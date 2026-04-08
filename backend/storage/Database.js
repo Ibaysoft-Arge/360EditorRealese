@@ -80,6 +80,14 @@ class StorageDB {
       // Kolonlar zaten varsa hata verir, ignore et
     }
 
+    // Tasks tablosuna result kolonu ekle (görev raporu için)
+    try {
+      this.db.exec(`ALTER TABLE tasks ADD COLUMN result TEXT`);
+      console.log('✅ result kolonu eklendi');
+    } catch (e) {
+      // Kolon zaten varsa hata verir, ignore et
+    }
+
     console.log('✅ Database tables hazır');
   }
 
@@ -140,8 +148,8 @@ class StorageDB {
   // TASKS
   saveTask(task) {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO tasks (id, title, description, workspaceId, status, assignedAgents, startTime, endTime, duration, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO tasks (id, title, description, workspaceId, status, assignedAgents, startTime, endTime, duration, result, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       task.id,
@@ -153,6 +161,7 @@ class StorageDB {
       task.startTime,
       task.endTime || null,
       task.duration || null,
+      task.result || null,
       task.createdAt
     );
   }
