@@ -705,6 +705,30 @@ function deleteWorkspace(workspaceId, workspaceName) {
 
 window.deleteWorkspace = deleteWorkspace;
 
+// Agent adını değiştir
+function renameAgent(agentId, oldName) {
+  const newName = prompt(`Agent adını değiştir:\n\nEski ad: ${oldName}`, oldName);
+
+  if (newName === null) {
+    // Kullanıcı iptal etti
+    return;
+  }
+
+  if (!newName.trim()) {
+    alert('❌ Agent adı boş olamaz!');
+    return;
+  }
+
+  if (newName.trim() === oldName) {
+    // İsim değişmedi
+    return;
+  }
+
+  // Backend'e agent adı değiştirme isteği gönder
+  socket.emit('agent:rename', { agentId, newName: newName.trim() });
+  addActivity('system', `✏️ "${oldName}" → "${newName.trim()}" agent adı değiştirildi`);
+}
+
 function deleteAgent(agentId, agentName) {
   if (confirm(`"${agentName}" agent'ını silmek istediğinden emin misin?\n\nBu işlem geri alınamaz!`)) {
     socket.emit('agent:delete', agentId);
@@ -712,6 +736,7 @@ function deleteAgent(agentId, agentName) {
   }
 }
 
+window.renameAgent = renameAgent;
 window.deleteAgent = deleteAgent;
 
 function renderAgents() {
@@ -754,6 +779,7 @@ function renderAgents() {
 
     return `
       <div class="agent-item" style="position: relative;">
+        <button class="btn-icon-sm" onclick="renameAgent('${agent.id}', '${agent.name}')" title="Agent adını değiştir" style="position: absolute; top: 0.5rem; right: 3rem; background: var(--accent-primary); color: white;">✏️</button>
         <button class="btn-icon-sm" onclick="deleteAgent('${agent.id}', '${agent.name}')" title="Agent'ı sil" style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--error); color: white;">🗑️</button>
 
         <div class="name">${agent.name}</div>
@@ -1040,53 +1066,51 @@ function openPMPanel() {
 // Sol sidebar aç/kapat
 function toggleLeftSidebar() {
   const mainLayout = document.querySelector('.main-layout');
-  const isLeftCollapsed = mainLayout.classList.contains('left-collapsed');
-  const isRightCollapsed = mainLayout.classList.contains('right-collapsed');
+  const isCurrentlyCollapsed = mainLayout.classList.contains('left-collapsed');
 
-  if (isLeftCollapsed) {
-    // Sol sidebar'ı aç
+  if (isCurrentlyCollapsed) {
+    // Aç
     mainLayout.classList.remove('left-collapsed');
-    if (isRightCollapsed) {
-      mainLayout.classList.remove('both-collapsed');
-      mainLayout.classList.add('right-collapsed');
-    }
+    mainLayout.classList.remove('both-collapsed');
+    localStorage.setItem('leftSidebarCollapsed', 'false');
   } else {
-    // Sol sidebar'ı kapat
+    // Kapat
     mainLayout.classList.add('left-collapsed');
-    if (isRightCollapsed) {
+
+    // Eğer sağ da kapalıysa, both-collapsed ekle
+    if (mainLayout.classList.contains('right-collapsed')) {
       mainLayout.classList.add('both-collapsed');
-      mainLayout.classList.remove('right-collapsed');
     }
+
+    localStorage.setItem('leftSidebarCollapsed', 'true');
   }
 
-  // LocalStorage'a kaydet
-  localStorage.setItem('leftSidebarCollapsed', !isLeftCollapsed);
+  console.log('🔲 Sol panel:', isCurrentlyCollapsed ? 'AÇILDI' : 'KAPANDI');
 }
 
 // Sağ sidebar aç/kapat
 function toggleRightSidebar() {
   const mainLayout = document.querySelector('.main-layout');
-  const isLeftCollapsed = mainLayout.classList.contains('left-collapsed');
-  const isRightCollapsed = mainLayout.classList.contains('right-collapsed');
+  const isCurrentlyCollapsed = mainLayout.classList.contains('right-collapsed');
 
-  if (isRightCollapsed) {
-    // Sağ sidebar'ı aç
+  if (isCurrentlyCollapsed) {
+    // Aç
     mainLayout.classList.remove('right-collapsed');
-    if (isLeftCollapsed) {
-      mainLayout.classList.remove('both-collapsed');
-      mainLayout.classList.add('left-collapsed');
-    }
+    mainLayout.classList.remove('both-collapsed');
+    localStorage.setItem('rightSidebarCollapsed', 'false');
   } else {
-    // Sağ sidebar'ı kapat
+    // Kapat
     mainLayout.classList.add('right-collapsed');
-    if (isLeftCollapsed) {
+
+    // Eğer sol da kapalıysa, both-collapsed ekle
+    if (mainLayout.classList.contains('left-collapsed')) {
       mainLayout.classList.add('both-collapsed');
-      mainLayout.classList.remove('left-collapsed');
     }
+
+    localStorage.setItem('rightSidebarCollapsed', 'true');
   }
 
-  // LocalStorage'a kaydet
-  localStorage.setItem('rightSidebarCollapsed', !isRightCollapsed);
+  console.log('🔳 Sağ panel:', isCurrentlyCollapsed ? 'AÇILDI' : 'KAPANDI');
 }
 
 // Sidebar durumlarını yükle (uygulama başlatınca)
@@ -1095,13 +1119,19 @@ function loadSidebarStates() {
   const rightCollapsed = localStorage.getItem('rightSidebarCollapsed') === 'true';
   const mainLayout = document.querySelector('.main-layout');
 
-  if (leftCollapsed && rightCollapsed) {
-    mainLayout.classList.add('both-collapsed');
-  } else if (leftCollapsed) {
+  if (leftCollapsed) {
     mainLayout.classList.add('left-collapsed');
-  } else if (rightCollapsed) {
+  }
+
+  if (rightCollapsed) {
     mainLayout.classList.add('right-collapsed');
   }
+
+  if (leftCollapsed && rightCollapsed) {
+    mainLayout.classList.add('both-collapsed');
+  }
+
+  console.log('📂 Sidebar durumları yüklendi - Sol:', leftCollapsed ? 'Kapalı' : 'Açık', 'Sağ:', rightCollapsed ? 'Kapalı' : 'Açık');
 }
 
 // Settings Drawer

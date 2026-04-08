@@ -71,6 +71,12 @@ io.on('connection', (socket) => {
     console.log('👤 Agent oluşturuldu:', agent.name, '-', agent.role);
   });
 
+  socket.on('agent:rename', (data) => {
+    const { agentId, newName } = data;
+    agentPoolManager.renameAgent(agentId, newName);
+    console.log('✏️ Agent adı değiştirildi:', agentId, '→', newName);
+  });
+
   socket.on('agent:delete', (agentId) => {
     agentPoolManager.deleteAgent(agentId);
   });

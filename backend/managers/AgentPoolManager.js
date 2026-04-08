@@ -96,6 +96,20 @@ class AgentPoolManager {
     return Array.from(this.agents.values()).filter(a => a.role === role);
   }
 
+  renameAgent(agentId, newName) {
+    const agent = this.agents.get(agentId);
+    if (agent) {
+      agent.name = newName;
+
+      // DB'ye kaydet
+      this.db.updateAgent(agentId, {
+        name: newName
+      });
+
+      this.io.emit('agent:updated', agent);
+    }
+  }
+
   deleteAgent(agentId) {
     this.agents.delete(agentId);
 
