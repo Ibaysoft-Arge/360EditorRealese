@@ -839,6 +839,7 @@ function renderTasks() {
       actions = `<button class="task-action-btn stop" onclick="event.stopPropagation(); stopTask('${task.id}')" title="${t('stop_task')}">⏸️</button>`;
     } else if (task.status === 'stopped' || task.status === 'completed') {
       actions = `
+        <button class="task-action-btn retry" onclick="event.stopPropagation(); retryTask('${task.id}')" title="Görevi tekrar çalıştır" style="background: var(--warning); color: #000; font-weight: 600;">🔄</button>
         <button class="task-action-btn" onclick="event.stopPropagation(); showTaskDiff('${task.id}')" title="Kod değişikliklerini gör">📊</button>
         <button class="task-action-btn rollback" onclick="event.stopPropagation(); rollbackTask('${task.id}')" title="${t('rollback_task')}">↩️</button>
         <button class="task-action-btn delete" onclick="event.stopPropagation(); deleteTask('${task.id}')" title="${t('delete_task')}">🗑️</button>
@@ -1712,9 +1713,14 @@ function renderTasksView() {
     const duration = task.duration ? `${Math.floor(task.duration / 60)}dk ${task.duration % 60}sn` : '-';
 
     // Agent isimleri
-    const assignedAgentNames = task.assignedAgents?.map(agentId => {
-      const agent = agents.find(a => a.id === agentId.agentId || a.id === agentId);
-      return agent ? agent.name : 'Bilinmeyen';
+    const assignedAgentNames = task.assignedAgents?.map(assignment => {
+      // assignedAgents format: [{ id: 'agentId', name: 'agentName', ... }]
+      if (assignment.name) {
+        return assignment.name; // Direkt ismi kullan
+      }
+      // Fallback: agents listesinden bul
+      const agent = agents.find(a => a.id === assignment.id || a.id === assignment);
+      return agent ? agent.name : 'Bilinmeyen Agent';
     }) || [];
 
     // Durum rengi
@@ -1736,6 +1742,15 @@ function renderTasksView() {
             </div>
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
+            ${task.status === 'completed' || task.status === 'stopped' ? `
+              <button
+                onclick="retryTask('${task.id}')"
+                class="btn-sm"
+                style="padding: 0.4rem 0.8rem; background: var(--warning); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;"
+                title="Görevi tekrar çalıştır">
+                🔄 Tekrar Çalıştır
+              </button>
+            ` : ''}
             <button
               onclick="viewTaskActivity('${task.id}')"
               class="btn-sm"
@@ -1765,6 +1780,32 @@ function renderTasksView() {
             <summary style="cursor: pointer; font-weight: 600; color: var(--accent-primary);">📄 Detaylı Rapor</summary>
             <div style="margin-top: 1rem; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary);">${task.result}</div>
           </details>
+        ` : ''}
+
+        ${task.status === 'completed' || task.status === 'stopped' ? `
+          <div class="retry-notes-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <label style="font-weight: 600; color: var(--text-primary); font-size: 0.9rem;">
+                📝 Tekrar çalıştırma için notlar (isteğe bağlı)
+              </label>
+              <button
+                onclick="clearRetryNotes('${task.id}')"
+                class="btn-sm"
+                style="padding: 0.3rem 0.6rem; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 0.75rem;"
+                title="Notları temizle">
+                🗑️ Temizle
+              </button>
+            </div>
+            <textarea
+              id="retryNotes_${task.id}"
+              class="retry-notes-textarea"
+              placeholder="Önceki çalışmada neler eksikti veya hatalıydı? Örnek:&#10;- Login sayfasında şifre göster butonu çalışmıyordu, düzelt&#10;- API endpoint'lerinde rate limiting ekle&#10;- Test coverage'ı %80'e çıkar"
+            ></textarea>
+            <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>💡</span>
+              <span>Bu notlar PM'e iletilir ve agent'lar önceki hatalardan kaçınır.</span>
+            </div>
+          </div>
         ` : ''}
       </div>
     `;
@@ -1811,7 +1852,85 @@ function filterTasksView() {
   renderTasksView();
 }
 
+// Görev tekrar çalıştır
+function retryTask(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) {
+    alert('❌ Görev bulunamadı!');
+    return;
+  }
+
+  const workspace = workspaces.find(w => w.id === task.workspaceId);
+  if (!workspace) {
+    alert('❌ Workspace bulunamadı!');
+    return;
+  }
+
+  // Textarea'dan notları al
+  const notesTextarea = document.getElementById(`retryNotes_${taskId}`);
+  const userNotes = notesTextarea ? notesTextarea.value.trim() : '';
+
+  // Görev açıklamasını oluştur
+  let taskDescription = task.description || task.title;
+
+  if (userNotes) {
+    // Kullanıcı not eklediyse, görev açıklamasına ekle
+    taskDescription += `\n\n📝 Ek Notlar / Düzeltmeler:\n${userNotes}`;
+  }
+
+  // Onay al
+  const confirmMessage = `🔄 Bu görevi tekrar çalıştırmak istiyor musun?\n\n📋 Görev: ${task.title}\n📁 Workspace: ${workspace.name}${userNotes ? `\n\n📝 Notlarınız:\n${userNotes.substring(0, 100)}${userNotes.length > 100 ? '...' : ''}` : '\n\n💡 Not: Görevler sekmesinde not alanına ek açıklama yazabilirsin.'}`;
+
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+
+  // Sağ sidebar'daki PM form'u doldur ve gönder
+  const pmWorkspaceSelect = document.getElementById('pmWorkspace');
+  const pmTaskTextarea = document.getElementById('pmTask');
+
+  if (pmWorkspaceSelect && pmTaskTextarea) {
+    pmWorkspaceSelect.value = workspace.id;
+    pmTaskTextarea.value = taskDescription;
+
+    addActivity('system', `🔄 "${task.title}" görevi tekrar çalıştırılıyor...`);
+
+    // Form submit
+    socket.emit('pm:assign-task', {
+      workspaceName: workspace.name,
+      workspaceId: workspace.id,
+      task: taskDescription
+    });
+
+    // Sağ sidebar'ı aç (eğer kapalıysa)
+    const rightSidebar = document.getElementById('rightSidebar');
+    if (rightSidebar && !rightSidebar.classList.contains('open')) {
+      rightSidebar.classList.add('open');
+    }
+
+    showNotification('🔄 Görev Tekrar Başlatıldı', `"${task.title}" tekrar çalıştırılıyor...`);
+
+    // Notları temizle
+    if (notesTextarea) {
+      notesTextarea.value = '';
+    }
+  } else {
+    alert('❌ PM formu bulunamadı!');
+  }
+}
+
+// Tekrar çalıştırma notlarını temizle
+function clearRetryNotes(taskId) {
+  const notesTextarea = document.getElementById(`retryNotes_${taskId}`);
+  if (notesTextarea) {
+    notesTextarea.value = '';
+    showNotification('🗑️ Temizlendi', 'Notlar temizlendi');
+  }
+}
+
 window.switchMainTab = switchMainTab;
 window.renderTasksView = renderTasksView;
 window.viewTaskActivity = viewTaskActivity;
 window.filterTasksView = filterTasksView;
+window.retryTask = retryTask;
+window.clearRetryNotes = clearRetryNotes;

@@ -500,6 +500,46 @@ body {
   color: var(--text-primary);
 }
 
+/* Retry Notes Area */
+.retry-notes-container {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s;
+}
+
+.retry-notes-container:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
+}
+
+.retry-notes-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.8rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  transition: all 0.2s;
+}
+
+.retry-notes-textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
+}
+
+.retry-notes-textarea::placeholder {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .dashboard-header {
   display: flex;
   justify-content: space-between;
