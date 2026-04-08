@@ -162,12 +162,12 @@ function renderAgentStatus() {
             <div class="agent-progress-container">
               <div class="agent-progress-bar"></div>
             </div>
-            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.3rem; display: flex; justify-content: space-between;">
-              <span class="agent-activity">${getAgentActivity(agent)}</span>
-              <span class="agent-progress-text">~${getEstimatedTime(agent)}</span>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.3rem; display: flex; justify-content: space-between; min-height: 20px;">
+              <span class="agent-activity" style="flex: 1;">${getAgentActivity(agent)}</span>
+              <span class="agent-progress-text" style="white-space: nowrap;">~${getEstimatedTime(agent)}</span>
             </div>
           </div>
-        ` : ''}
+        ` : '<div style="min-height: 60px;"></div>'}
       </div>
     `;
   }).join('');
@@ -245,6 +245,11 @@ function renderPMConversations() {
 function filterActivity(filter) {
   currentFilter = filter;
 
+  // Task filtresini temizle (eğer "Tümü" veya "Bugün" seçilirse)
+  if (filter !== 'task') {
+    currentTaskFilter = null;
+  }
+
   // Buton durumlarını güncelle
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.classList.remove('active');
@@ -252,6 +257,7 @@ function filterActivity(filter) {
   event.target.classList.add('active');
 
   renderActivityTimeline();
+  renderPMConversations();
 }
 
 // Göreve göre filtrele
@@ -262,8 +268,11 @@ window.filterActivityByTask = function(taskId) {
   // Buton durumlarını güncelle
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.classList.remove('active');
+    // "Görevlere Göre" veya "Göreve Göre" butonunu aktif et
+    if (btn.textContent.includes('Görev')) {
+      btn.classList.add('active');
+    }
   });
-  document.getElementById('filter-task-btn')?.classList.add('active');
 
   renderActivityTimeline();
   renderPMConversations();

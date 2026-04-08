@@ -170,8 +170,14 @@
         </div>
 
         <div class="editor-content">
+          <!-- Main Content Tabs -->
+          <div class="main-content-tabs">
+            <button class="main-tab-btn active" onclick="switchMainTab('dashboard')">📊 Dashboard</button>
+            <button class="main-tab-btn" onclick="switchMainTab('tasks')">🎯 Görevler</button>
+          </div>
+
           <!-- Activity Dashboard -->
-          <div id="activityDashboard" class="activity-dashboard">
+          <div id="activityDashboard" class="activity-dashboard main-tab-content active">
             <div class="dashboard-header">
               <h1>📊 Activity Dashboard</h1>
               <div class="dashboard-filters">
@@ -199,6 +205,46 @@
                 <h3>💬 PM - Agent Konuşmaları</h3>
                 <div id="pmConversations" class="pm-conversations"></div>
               </div>
+            </div>
+          </div>
+
+          <!-- Tasks View -->
+          <div id="tasksView" class="tasks-view main-tab-content">
+            <div class="tasks-view-header">
+              <h1>🎯 Görevler</h1>
+              <div class="tasks-view-stats"></div>
+            </div>
+
+            <!-- Filters -->
+            <div class="tasks-view-filters">
+              <input
+                type="text"
+                id="tasksViewSearch"
+                placeholder="🔍 Görev ara..."
+                oninput="filterTasksView()"
+                class="tasks-filter-input">
+
+              <select id="tasksViewStatus" onchange="filterTasksView()" class="tasks-filter-select">
+                <option value="all">Tüm Durumlar</option>
+                <option value="in-progress">⏳ Devam Ediyor</option>
+                <option value="completed">✅ Tamamlandı</option>
+                <option value="stopped">🛑 Durduruldu</option>
+              </select>
+
+              <select id="tasksViewWorkspace" onchange="filterTasksView()" class="tasks-filter-select">
+                <option value="all">Tüm Projeler</option>
+              </select>
+
+              <select id="tasksViewSort" onchange="filterTasksView()" class="tasks-filter-select">
+                <option value="newest">🕐 Yeniden Eskiye</option>
+                <option value="oldest">🕑 Eskiden Yeniye</option>
+                <option value="duration-desc">⏱️ Süre (Uzun → Kısa)</option>
+                <option value="duration-asc">⏱️ Süre (Kısa → Uzun)</option>
+              </select>
+            </div>
+
+            <div class="tasks-view-content">
+              <div id="tasksViewList" class="tasks-view-list"></div>
             </div>
           </div>
 

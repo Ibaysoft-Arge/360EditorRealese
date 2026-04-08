@@ -168,6 +168,7 @@ function initSocket() {
     tasks.push(task);
     window.tasks = tasks;
     renderTasks();
+    renderTasksView(); // Geniş görünüm de güncellensin
     renderWorkspaces(); // Workspace'lerde görev sayısını güncelle
     addActivity('system', `🎯 Yeni görev: "${task.title}"`);
   });
@@ -178,6 +179,7 @@ function initSocket() {
       tasks[index] = task;
       window.tasks = tasks;
       renderTasks();
+      renderTasksView(); // Geniş görünüm de güncellensin
       renderWorkspaces(); // Workspace'lerde görev durumunu güncelle
 
       if (task.status === 'completed') {
@@ -192,8 +194,8 @@ function initSocket() {
     tasks = tasks.filter(t => t.id !== taskId);
     window.tasks = tasks;
     renderTasks();
+    renderTasksView(); // Geniş görünüm de güncellensin
     renderWorkspaces(); // Workspace'lerde görev sayısını güncelle
-    renderWorkspaces();
   });
 
   socket.on('task:stopped', ({ taskId }) => {
@@ -1582,3 +1584,234 @@ function testTelegramConnection() {
 }
 
 window.testTelegramConnection = testTelegramConnection;
+
+// Main Tab Switching (Dashboard / Tasks View)
+function switchMainTab(tab) {
+  // Tab butonlarını güncelle
+  document.querySelectorAll('.main-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  event.target.classList.add('active');
+
+  // Content'leri göster/gizle
+  document.querySelectorAll('.main-tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+
+  if (tab === 'dashboard') {
+    document.getElementById('activityDashboard').classList.add('active');
+  } else if (tab === 'tasks') {
+    document.getElementById('tasksView').classList.add('active');
+    renderTasksView();
+  }
+}
+
+// Görevleri geniş formatta göster
+function renderTasksView() {
+  const container = document.getElementById('tasksViewList');
+  if (!container) return;
+
+  // Workspace dropdown'ını doldur
+  const wsDropdown = document.getElementById('tasksViewWorkspace');
+  if (wsDropdown && workspaces.length > 0) {
+    const currentValue = wsDropdown.value;
+    wsDropdown.innerHTML = '<option value="all">Tüm Projeler</option>' +
+      workspaces.map(ws => `<option value="${ws.id}">${ws.name}</option>`).join('');
+    wsDropdown.value = currentValue;
+  }
+
+  if (tasks.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 4rem; color: var(--text-secondary);">
+        <h2 style="font-size: 3rem; margin-bottom: 1rem;">🎯</h2>
+        <p style="font-size: 1.2rem;">Henüz görev yok</p>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem;">PM'e görev vererek başlayın!</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Filtreleme
+  const searchText = document.getElementById('tasksViewSearch')?.value.toLowerCase() || '';
+  const statusFilter = document.getElementById('tasksViewStatus')?.value || 'all';
+  const workspaceFilter = document.getElementById('tasksViewWorkspace')?.value || 'all';
+  const sortOrder = document.getElementById('tasksViewSort')?.value || 'newest';
+
+  let filteredTasks = tasks.filter(task => {
+    // Arama
+    if (searchText && !task.title.toLowerCase().includes(searchText) &&
+        !task.description?.toLowerCase().includes(searchText)) {
+      return false;
+    }
+
+    // Durum
+    if (statusFilter !== 'all' && task.status !== statusFilter) {
+      return false;
+    }
+
+    // Workspace
+    if (workspaceFilter !== 'all' && task.workspaceId !== workspaceFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // İstatistikler (tüm görevler için)
+  const inProgress = tasks.filter(t => t.status === 'in-progress').length;
+  const completed = tasks.filter(t => t.status === 'completed').length;
+  const stopped = tasks.filter(t => t.status === 'stopped').length;
+
+  const statsContainer = document.querySelector('.tasks-view-stats');
+  if (statsContainer) {
+    statsContainer.innerHTML = `
+      <div style="padding: 0.5rem 1rem; background: rgba(220, 220, 170, 0.2); border-radius: 6px;">
+        <strong>${inProgress}</strong> Devam Ediyor
+      </div>
+      <div style="padding: 0.5rem 1rem; background: rgba(137, 209, 133, 0.2); border-radius: 6px;">
+        <strong>${completed}</strong> Tamamlandı
+      </div>
+      <div style="padding: 0.5rem 1rem; background: rgba(244, 135, 113, 0.2); border-radius: 6px;">
+        <strong>${stopped}</strong> Durduruldu
+      </div>
+      <div style="padding: 0.5rem 1rem; background: var(--bg-tertiary); border-radius: 6px;">
+        <strong>${filteredTasks.length}</strong> / ${tasks.length} Gösteriliyor
+      </div>
+    `;
+  }
+
+  // Sıralama
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    switch(sortOrder) {
+      case 'oldest':
+        return new Date(a.startTime) - new Date(b.startTime);
+      case 'duration-desc':
+        return (b.duration || 0) - (a.duration || 0);
+      case 'duration-asc':
+        return (a.duration || 0) - (b.duration || 0);
+      case 'newest':
+      default:
+        return new Date(b.startTime) - new Date(a.startTime);
+    }
+  });
+
+  if (sortedTasks.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍</h3>
+        <p>Filtrelere uygun görev bulunamadı</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = sortedTasks.map(task => {
+    const workspace = workspaces.find(w => w.id === task.workspaceId);
+    const startTime = new Date(task.startTime).toLocaleString('tr-TR');
+    const endTime = task.endTime ? new Date(task.endTime).toLocaleString('tr-TR') : '-';
+    const duration = task.duration ? `${Math.floor(task.duration / 60)}dk ${task.duration % 60}sn` : '-';
+
+    // Agent isimleri
+    const assignedAgentNames = task.assignedAgents?.map(agentId => {
+      const agent = agents.find(a => a.id === agentId.agentId || a.id === agentId);
+      return agent ? agent.name : 'Bilinmeyen';
+    }) || [];
+
+    // Durum rengi
+    let statusIcon = '';
+    if (task.status === 'in-progress') statusIcon = '⏳';
+    else if (task.status === 'completed') statusIcon = '✅';
+    else if (task.status === 'stopped') statusIcon = '🛑';
+
+    return `
+      <div class="task-view-card">
+        <div class="task-view-card-header">
+          <div style="flex: 1;">
+            <div class="task-view-title">${statusIcon} ${task.title}</div>
+            <div class="task-view-meta">
+              <span>📁 <strong>${workspace?.name || 'Bilinmeyen'}</strong></span>
+              <span>🕐 Başlangıç: ${startTime}</span>
+              ${task.endTime ? `<span>🏁 Bitiş: ${endTime}</span>` : ''}
+              <span>⏱️ Süre: ${duration}</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button
+              onclick="viewTaskActivity('${task.id}')"
+              class="btn-sm"
+              style="padding: 0.4rem 0.8rem; background: var(--accent-primary); color: white; border: none; border-radius: 4px; cursor: pointer;"
+              title="Dashboard'da görüntüle">
+              📊 Aktivite
+            </button>
+            <span class="task-view-status ${task.status}">${getStatusText(task.status)}</span>
+          </div>
+        </div>
+
+        ${task.description ? `
+          <div class="task-view-description">${task.description}</div>
+        ` : ''}
+
+        ${assignedAgentNames.length > 0 ? `
+          <div class="task-view-agents">
+            <span style="color: var(--text-secondary); font-size: 0.85rem; margin-right: 0.5rem;">👥 Agentlar:</span>
+            ${assignedAgentNames.map(name => `
+              <span class="task-view-agent-badge">${name}</span>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        ${task.result ? `
+          <details style="margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 6px;">
+            <summary style="cursor: pointer; font-weight: 600; color: var(--accent-primary);">📄 Detaylı Rapor</summary>
+            <div style="margin-top: 1rem; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary);">${task.result}</div>
+          </details>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function getStatusText(status) {
+  switch(status) {
+    case 'in-progress': return 'Devam Ediyor';
+    case 'completed': return 'Tamamlandı';
+    case 'stopped': return 'Durduruldu';
+    default: return status;
+  }
+}
+
+// Görev aktivitesini görüntüle (Dashboard'a geç ve filtrele)
+function viewTaskActivity(taskId) {
+  // Dashboard sekmesine geç
+  switchMainTab('dashboard');
+  document.querySelectorAll('.main-tab-btn').forEach(btn => {
+    if (btn.textContent.includes('Dashboard')) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // Göreve göre filtrele
+  if (typeof window.filterActivityByTask === 'function') {
+    window.filterActivityByTask(taskId);
+  }
+
+  // Dashboard filtre butonlarını güncelle
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.textContent.includes('Görevlere Göre') || btn.textContent.includes('Göreve Göre')) {
+      btn.classList.add('active');
+    }
+  });
+}
+
+// Görev filtreleme
+function filterTasksView() {
+  renderTasksView();
+}
+
+window.switchMainTab = switchMainTab;
+window.renderTasksView = renderTasksView;
+window.viewTaskActivity = viewTaskActivity;
+window.filterTasksView = filterTasksView;
