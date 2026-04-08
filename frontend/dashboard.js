@@ -193,8 +193,8 @@ function renderActivityTimeline() {
 
   if (filteredLogs.length === 0) {
     console.log('⚠️ Filtrelenmiş aktivite bulunamadı. Filter:', currentFilter, 'TaskFilter:', currentTaskFilter);
-    container.innerHTML = `
-      <div style="text-align: center; padding: 4rem 2rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border-color);">
+    const emptyHTML = `
+      <div style="text-align: center; padding: 4rem 2rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border-color); min-height: 300px;">
         <div style="font-size: 4rem; margin-bottom: 1rem;">📭</div>
         <div style="font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">
           Bu Görev İçin Aktivite Yok
@@ -204,6 +204,8 @@ function renderActivityTimeline() {
         </div>
       </div>
     `;
+    container.innerHTML = emptyHTML;
+    console.log('✅ Aktivite Timeline boş durumu render edildi. Container:', container.id, 'innerHTML length:', container.innerHTML.length);
     return;
   }
 
@@ -233,8 +235,8 @@ function renderPMConversations() {
 
   if (taskIds.length === 0) {
     console.log('⚠️ Filtrelenmiş konuşma bulunamadı. Filter:', currentFilter, 'TaskFilter:', currentTaskFilter);
-    container.innerHTML = `
-      <div style="text-align: center; padding: 4rem 2rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border-color);">
+    const emptyHTML = `
+      <div style="text-align: center; padding: 4rem 2rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border-color); min-height: 300px;">
         <div style="font-size: 4rem; margin-bottom: 1rem;">💬</div>
         <div style="font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">
           Bu Görev İçin PM Konuşması Yok
@@ -244,6 +246,8 @@ function renderPMConversations() {
         </div>
       </div>
     `;
+    container.innerHTML = emptyHTML;
+    console.log('✅ PM Conversations boş durumu render edildi. Container:', container.id, 'innerHTML length:', container.innerHTML.length);
     return;
   }
 
