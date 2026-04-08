@@ -355,6 +355,8 @@ body {
 .main-tab-btn.active {
   background: var(--accent-primary);
   color: white;
+  box-shadow: 0 2px 8px rgba(0, 122, 204, 0.3);
+  transform: translateY(-1px);
 }
 
 .main-tab-content {

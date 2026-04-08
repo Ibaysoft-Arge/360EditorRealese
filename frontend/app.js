@@ -1042,10 +1042,26 @@ function selectTask(taskId) {
   selectedTaskId = taskId;
   renderTasks();
 
+  // Dashboard sekmesine geç
+  switchMainTab('dashboard');
+
   // Dashboard'ı sadece bu görev için filtrele
   filterDashboardByTask(taskId);
 
-  addActivity('system', `🎯 Görev seçildi: "${tasks.find(t => t.id === taskId)?.title}"`);
+  const taskTitle = tasks.find(t => t.id === taskId)?.title || 'Görev';
+  addActivity('system', `🎯 Görev seçildi: "${taskTitle}"`);
+
+  // Dashboard'ı en üste scroll et
+  setTimeout(() => {
+    const activityDashboard = document.getElementById('activityDashboard');
+    if (activityDashboard) {
+      activityDashboard.scrollTop = 0;
+      console.log('📜 Dashboard scroll to top');
+    }
+  }, 100);
+
+  // Bildirim göster
+  showNotification('🎯 Görev Seçildi', `"${taskTitle}" görevinin aktiviteleri Dashboard'da görünüyor`);
 }
 
 function filterDashboardByTask(taskId) {
@@ -1056,6 +1072,9 @@ function filterDashboardByTask(taskId) {
   // Activity Timeline ve PM Conversations'ı filtrele
   if (typeof window.filterActivityByTask === 'function') {
     window.filterActivityByTask(taskId);
+    console.log('📊 Dashboard göreve göre filtrelendi:', task.title);
+  } else {
+    console.warn('⚠️ filterActivityByTask fonksiyonu bulunamadı!');
   }
 }
 
@@ -1721,8 +1740,12 @@ function switchMainTab(tab) {
   // Tab butonlarını güncelle
   document.querySelectorAll('.main-tab-btn').forEach(btn => {
     btn.classList.remove('active');
+    // Tab'a göre buton seç
+    if ((tab === 'dashboard' && btn.textContent.includes('Dashboard')) ||
+        (tab === 'tasks' && btn.textContent.includes('Görev'))) {
+      btn.classList.add('active');
+    }
   });
-  event.target.classList.add('active');
 
   // Content'leri göster/gizle
   document.querySelectorAll('.main-tab-content').forEach(content => {
@@ -1731,9 +1754,11 @@ function switchMainTab(tab) {
 
   if (tab === 'dashboard') {
     document.getElementById('activityDashboard').classList.add('active');
+    console.log('📊 Dashboard sekmesi aktif');
   } else if (tab === 'tasks') {
     document.getElementById('tasksView').classList.add('active');
     renderTasksView();
+    console.log('🎯 Görevler sekmesi aktif');
   }
 }
 

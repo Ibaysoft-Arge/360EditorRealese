@@ -192,9 +192,22 @@ function renderActivityTimeline() {
   }
 
   if (filteredLogs.length === 0) {
-    container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 2rem;">Bu görev için aktivite yok</div>';
+    console.log('⚠️ Filtrelenmiş aktivite bulunamadı. Filter:', currentFilter, 'TaskFilter:', currentTaskFilter);
+    container.innerHTML = `
+      <div style="text-align: center; padding: 4rem 2rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border-color);">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">📭</div>
+        <div style="font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">
+          Bu Görev İçin Aktivite Yok
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text-secondary); max-width: 400px; margin: 0 auto; line-height: 1.6;">
+          ${currentTaskFilter ? 'Bu görev henüz başlamadı veya aktivite kaydedilmedi. PM\'e görev verdikten sonra aktiviteler burada görünecek.' : 'Henüz hiçbir aktivite kaydedilmemiş.'}
+        </div>
+      </div>
+    `;
     return;
   }
+
+  console.log('✅ Aktivite Timeline render ediliyor:', filteredLogs.length, 'adet');
 
   container.innerHTML = filteredLogs.map(log => {
     const time = new Date(log.timestamp).toLocaleString('tr-TR');
@@ -219,9 +232,22 @@ function renderPMConversations() {
   }
 
   if (taskIds.length === 0) {
-    container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 2rem;">Bu görev için konuşma yok</div>';
+    console.log('⚠️ Filtrelenmiş konuşma bulunamadı. Filter:', currentFilter, 'TaskFilter:', currentTaskFilter);
+    container.innerHTML = `
+      <div style="text-align: center; padding: 4rem 2rem; background: var(--bg-secondary); border-radius: 12px; border: 2px dashed var(--border-color);">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">💬</div>
+        <div style="font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">
+          Bu Görev İçin PM Konuşması Yok
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text-secondary); max-width: 400px; margin: 0 auto; line-height: 1.6;">
+          ${currentTaskFilter ? 'PM henüz bu görev için agent\'larla konuşmadı. Görev başladıktan sonra konuşmalar burada görünecek.' : 'Henüz hiçbir PM konuşması kaydedilmemiş.'}
+        </div>
+      </div>
+    `;
     return;
   }
+
+  console.log('✅ PM Conversations render ediliyor:', taskIds.length, 'adet');
 
   container.innerHTML = taskIds.reverse().map(taskId => {
     const conversation = pmConversations[taskId];
@@ -248,6 +274,12 @@ function filterActivity(filter) {
   // Task filtresini temizle (eğer "Tümü" veya "Bugün" seçilirse)
   if (filter !== 'task') {
     currentTaskFilter = null;
+
+    // Dashboard başlığını eski haline döndür
+    const dashboardHeader = document.querySelector('.dashboard-header h1');
+    if (dashboardHeader) {
+      dashboardHeader.innerHTML = '📊 Activity Dashboard';
+    }
   }
 
   // Buton durumlarını güncelle
@@ -265,6 +297,14 @@ window.filterActivityByTask = function(taskId) {
   currentTaskFilter = taskId;
   currentFilter = 'task';
 
+  console.log('🔍 Göreve göre filtreleme:', {
+    taskId,
+    totalActivities: activityLog.length,
+    totalConversations: Object.keys(pmConversations).length,
+    matchingActivities: activityLog.filter(log => log.data && log.data.taskId === taskId).length,
+    matchingConversations: pmConversations[taskId] ? pmConversations[taskId].messages.length : 0
+  });
+
   // Buton durumlarını güncelle
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.classList.remove('active');
@@ -273,6 +313,15 @@ window.filterActivityByTask = function(taskId) {
       btn.classList.add('active');
     }
   });
+
+  // Dashboard başlığını güncelle
+  const dashboardHeader = document.querySelector('.dashboard-header h1');
+  if (dashboardHeader && window.tasks) {
+    const task = window.tasks.find(t => t.id === taskId);
+    if (task) {
+      dashboardHeader.innerHTML = `📊 Activity Dashboard <span style="font-size: 0.7rem; color: var(--accent-primary); font-weight: normal; margin-left: 1rem;">🎯 Seçili Görev: ${task.title.substring(0, 50)}${task.title.length > 50 ? '...' : ''}</span>`;
+    }
+  }
 
   renderActivityTimeline();
   renderPMConversations();
