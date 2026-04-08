@@ -616,12 +616,20 @@ body {
   gap: 2rem;
 }
 
+.agent-status-section,
+.activity-timeline-section,
+.pm-conversations-section {
+  min-height: 250px;
+  margin-bottom: 2rem;
+}
+
 .agent-status-section h3,
 .activity-timeline-section h3,
 .pm-conversations-section h3 {
   font-size: 1.1rem;
   color: var(--text-primary);
   margin-bottom: 1rem;
+  font-weight: 700;
 }
 
 .agent-status-grid {
@@ -669,7 +677,8 @@ body {
   background: var(--bg-secondary);
   border-radius: 8px;
   padding: 1.5rem;
-  max-height: 400px;
+  min-height: 200px;
+  max-height: 600px;
   overflow-y: auto;
 }
 
@@ -696,7 +705,8 @@ body {
   background: var(--bg-secondary);
   border-radius: 8px;
   padding: 1.5rem;
-  max-height: 500px;
+  min-height: 200px;
+  max-height: 600px;
   overflow-y: auto;
 }
 
