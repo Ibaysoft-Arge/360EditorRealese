@@ -1051,29 +1051,14 @@ function selectTask(taskId) {
   const taskTitle = tasks.find(t => t.id === taskId)?.title || 'Görev';
   addActivity('system', `🎯 Görev seçildi: "${taskTitle}"`);
 
-  // Dashboard'ı en üste scroll et - AGRESIF
+  // Dashboard'ı en üste scroll et
   setTimeout(() => {
-    // Ana content'i scroll et
-    const editorContent = document.querySelector('.editor-content');
-    if (editorContent) {
-      editorContent.scrollTop = 0;
-      console.log('📜 Editor content scroll to top');
-    }
-
-    // Dashboard'ı da scroll et
     const activityDashboard = document.getElementById('activityDashboard');
     if (activityDashboard) {
       activityDashboard.scrollTop = 0;
       console.log('📜 Dashboard scroll to top');
     }
-
-    // Timeline container'ı scroll et
-    const timelineSection = document.querySelector('.activity-timeline-section');
-    if (timelineSection) {
-      timelineSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      console.log('📜 Timeline section scroll into view');
-    }
-  }, 200);
+  }, 100);
 
   // Bildirim göster
   showNotification('🎯 Görev Seçildi', `"${taskTitle}" görevinin aktiviteleri Dashboard'da görünüyor`);
