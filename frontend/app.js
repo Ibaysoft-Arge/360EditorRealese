@@ -1152,6 +1152,30 @@ function openSettings() {
     document.getElementById('themeSelect').value = currentThemeValue;
   }
 
+  // Telegram ayarlarını yükle
+  const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
+  const telegramChatId = localStorage.getItem('telegramChatId') || '';
+  if (document.getElementById('telegramBotToken')) {
+    document.getElementById('telegramBotToken').value = telegramBotToken;
+  }
+  if (document.getElementById('telegramChatId')) {
+    document.getElementById('telegramChatId').value = telegramChatId;
+  }
+
+  // PM Personality'yi yükle
+  const pmPersonality = localStorage.getItem('pmPersonality') || 'sert';
+  if (document.getElementById('pmPersonality')) {
+    document.getElementById('pmPersonality').value = pmPersonality;
+  }
+
+  // Claude Model'i yükle
+  const claudeModel = localStorage.getItem('claudeModel') || 'sonnet';
+  if (document.getElementById('claudeModel')) {
+    document.getElementById('claudeModel').value = claudeModel;
+  }
+
+  console.log('⚙️ Settings drawer açıldı, tüm ayarlar yüklendi');
+
   // Hakkında metnini güncelle
   if (typeof updateAboutText === 'function') {
     updateAboutText();
@@ -1244,11 +1268,24 @@ function loadSettings() {
   // Telegram ayarlarını yükle (backend'e gönderme socket.on('connect')'te yapılıyor)
   const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
   const telegramChatId = localStorage.getItem('telegramChatId') || '';
+
+  console.log('📱 LocalStorage Telegram verileri:', {
+    token: telegramBotToken ? `${telegramBotToken.substring(0, 10)}...` : 'YOK',
+    chatId: telegramChatId || 'YOK'
+  });
+
   if (document.getElementById('telegramBotToken')) {
     document.getElementById('telegramBotToken').value = telegramBotToken;
+    console.log('✅ Telegram Bot Token input\'a yüklendi');
+  } else {
+    console.warn('⚠️ telegramBotToken input bulunamadı!');
   }
+
   if (document.getElementById('telegramChatId')) {
     document.getElementById('telegramChatId').value = telegramChatId;
+    console.log('✅ Telegram Chat ID input\'a yüklendi');
+  } else {
+    console.warn('⚠️ telegramChatId input bulunamadı!');
   }
 
   // Dil ayarını yükle VE UYGULA
