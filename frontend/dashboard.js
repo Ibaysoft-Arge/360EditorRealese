@@ -6,54 +6,39 @@ let currentTaskFilter = null;
 
 // LocalStorage'dan yükle
 function loadDashboardData() {
-  console.log('📂 loadDashboardData - localStorage\'dan yükleniyor...');
-
   const savedLogs = localStorage.getItem('activityLog');
   const savedConversations = localStorage.getItem('pmConversations');
-
-  console.log('📂 localStorage RAW değerler:');
-  console.log('   activityLog:', savedLogs ? `${savedLogs.length} karakter` : 'YOK');
-  console.log('   pmConversations:', savedConversations ? `${savedConversations.length} karakter` : 'YOK');
 
   if (savedLogs) {
     try {
       activityLog = JSON.parse(savedLogs);
-      console.log('✅ activityLog yüklendi:', activityLog.length, 'item');
+      console.log('✅ Dashboard yüklendi:', activityLog.length, 'aktivite,', Object.keys(pmConversations).length, 'konuşma');
     } catch (e) {
       console.error('❌ Activity log parse hatası:', e);
     }
-  } else {
-    console.warn('⚠️ localStorage\'da activityLog YOK!');
   }
 
   if (savedConversations) {
     try {
       pmConversations = JSON.parse(savedConversations);
-      console.log('✅ pmConversations yüklendi:', Object.keys(pmConversations).length, 'conversation');
     } catch (e) {
       console.error('❌ PM conversations parse hatası:', e);
     }
-  } else {
-    console.warn('⚠️ localStorage\'da pmConversations YOK!');
   }
 }
 
 // LocalStorage'a kaydet
 function saveDashboardData() {
-  console.log('💾 saveDashboardData - localStorage\'a kaydediliyor...');
-  console.log('   activityLog:', activityLog.length, 'items');
-  console.log('   pmConversations:', Object.keys(pmConversations).length, 'conversations');
-  localStorage.setItem('activityLog', JSON.stringify(activityLog));
-  localStorage.setItem('pmConversations', JSON.stringify(pmConversations));
-  console.log('✅ localStorage\'a kaydedildi!');
+  try {
+    localStorage.setItem('activityLog', JSON.stringify(activityLog));
+    localStorage.setItem('pmConversations', JSON.stringify(pmConversations));
+  } catch (e) {
+    console.error('❌ localStorage kaydetme hatası:', e);
+  }
 }
 
 function initDashboard() {
-  console.log('📊 Dashboard başlatılıyor...');
   loadDashboardData(); // İlk yüklemede veriyi al
-
-  console.log('📋 Yüklenen aktivite sayısı:', activityLog.length);
-  console.log('💬 Yüklenen konuşma sayısı:', Object.keys(pmConversations).length);
 
   renderAgentStatus();
   renderActivityTimeline();
@@ -66,7 +51,6 @@ function initDashboard() {
 }
 
 function addActivityLog(type, message, data = {}) {
-  console.log('➕ addActivityLog çağrıldı:', type, message.substring(0, 50));
   const logEntry = {
     type,
     message,
@@ -81,20 +65,16 @@ function addActivityLog(type, message, data = {}) {
     activityLog = activityLog.slice(0, 100);
   }
 
-  console.log('💾 saveDashboardData çağrılıyor... activityLog.length:', activityLog.length);
   saveDashboardData(); // LocalStorage'a kaydet
   renderActivityTimeline();
 }
 
 function addPMConversation(taskId, taskName, from, message) {
-  console.log('💬 addPMConversation çağrıldı:', {taskId, taskName, from, message: message.substring(0, 50)});
-
   if (!pmConversations[taskId]) {
     pmConversations[taskId] = {
       taskName: taskName,
       messages: []
     };
-    console.log('📝 Yeni conversation oluşturuldu:', taskId);
   }
 
   pmConversations[taskId].messages.push({
@@ -103,7 +83,6 @@ function addPMConversation(taskId, taskName, from, message) {
     timestamp: new Date().toISOString()
   });
 
-  console.log('✅ Mesaj eklendi - Toplam conversation sayısı:', Object.keys(pmConversations).length);
   saveDashboardData(); // LocalStorage'a kaydet
   renderPMConversations();
 }
@@ -199,9 +178,6 @@ function renderActivityTimeline() {
   const container = document.getElementById('activityTimeline');
   if (!container) return;
 
-  console.log('🔍 renderActivityTimeline - Toplam log sayısı:', activityLog.length);
-  console.log('🔍 currentFilter:', currentFilter, 'currentTaskFilter:', currentTaskFilter);
-
   let filteredLogs = activityLog;
 
   if (currentFilter === 'today') {
@@ -229,8 +205,6 @@ function renderActivityTimeline() {
     });
   }
 
-  console.log('✅ Filtrelenmiş log sayısı:', filteredLogs.length);
-
   if (filteredLogs.length === 0) {
     container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 2rem;">Bu görev için aktivite yok</div>';
     return;
@@ -251,17 +225,12 @@ function renderPMConversations() {
   const container = document.getElementById('pmConversations');
   if (!container) return;
 
-  console.log('💬 renderPMConversations - Toplam konuşma sayısı:', Object.keys(pmConversations).length);
-  console.log('💬 pmConversations keys:', Object.keys(pmConversations));
-
   let taskIds = Object.keys(pmConversations);
 
   // Task filtresine göre filtrele
   if (currentFilter === 'task' && currentTaskFilter) {
     taskIds = taskIds.filter(id => id === currentTaskFilter);
   }
-
-  console.log('✅ Filtrelenmiş konuşma sayısı:', taskIds.length);
 
   if (taskIds.length === 0) {
     container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 2rem;">Bu görev için konuşma yok</div>';
@@ -307,10 +276,6 @@ function filterActivity(filter) {
 
 // Göreve göre filtrele
 window.filterActivityByTask = function(taskId) {
-  console.log('🎯 filterActivityByTask çağrıldı - taskId:', taskId);
-  console.log('📊 activityLog sayısı:', activityLog.length);
-  console.log('💬 pmConversations:', Object.keys(pmConversations).length, 'görev');
-
   currentTaskFilter = taskId;
   currentFilter = 'task';
 
@@ -336,27 +301,20 @@ if (typeof window !== 'undefined') {
 
         // Activity log için socket listeners
         window.socket.on('workspace:created', (ws) => {
-          console.log('📩 workspace:created event geldi:', ws);
           addActivityLog('workspace', `📁 "${ws.name}" projesi oluşturuldu`);
-          console.log('✅ workspace:created kaydedildi - activityLog:', activityLog.length);
         });
 
         window.socket.on('agent:created', (agent) => {
-          console.log('📩 agent:created event geldi:', agent);
           addActivityLog('agent', `👤 ${agent.name} (${agent.role}) havuza eklendi`);
           renderAgentStatus();
-          console.log('✅ agent:created kaydedildi - activityLog:', activityLog.length);
         });
 
         window.socket.on('agent:updated', (agent) => {
-          console.log('🔄 agent:updated geldi:', agent.name, agent.status);
-
           // window.agents'ı güncelle
           if (window.agents) {
             const index = window.agents.findIndex(a => a.id === agent.id);
             if (index !== -1) {
               window.agents[index] = agent;
-              console.log('✅ Agent güncellendi:', agent.name, 'status:', agent.status);
             } else {
               console.warn('⚠️ Agent bulunamadı:', agent.id);
             }
@@ -370,15 +328,12 @@ if (typeof window !== 'undefined') {
             const workspaces = window.workspaces || [];
             const ws = workspaces.find(w => w.id === agent.currentWorkspace);
             addActivityLog('agent', `🚀 ${agent.name} → "${ws?.name}" projesinde çalışmaya başladı`);
-            console.log('✅ agent working kaydedildi - activityLog:', activityLog.length);
           } else if (agent.status === 'idle') {
             addActivityLog('agent', `✅ ${agent.name} görevi tamamladı`);
-            console.log('✅ agent idle kaydedildi - activityLog:', activityLog.length);
           }
         });
 
         window.socket.on('pm:task-received', (data) => {
-          console.log('📩 pm:task-received event geldi:', data);
           addActivityLog('pm', data.message);
 
           // Task için conversation başlat
@@ -388,26 +343,21 @@ if (typeof window !== 'undefined') {
               messages: []
             };
           }
-          console.log('✅ pm:task-received kaydedildi - activityLog:', activityLog.length);
         });
 
         window.socket.on('pm:message', (data) => {
-          console.log('📩 pm:message event geldi:', data);
           const taskId = data.taskId || Date.now().toString();
           const taskName = data.task || `Görev ${taskId.slice(-4)}`;
           const from = data.from || 'PM';
           addPMConversation(taskId, taskName, from, data.message);
           addActivityLog('pm', `💬 ${from} → ${data.to || 'Takım'}: ${data.message.substring(0, 50)}...`, { taskId });
-          console.log('✅ pm:message kaydedildi - activityLog:', activityLog.length, 'pmConversations:', Object.keys(pmConversations).length);
         });
 
         window.socket.on('agent:log', (data) => {
-          console.log('📩 agent:log event geldi:', data);
           const agents = window.agents || [];
           const agent = agents.find(a => a.id === data.agentId);
           if (agent) {
             addActivityLog('agent', `📝 ${agent.name}: ${data.message}`, { taskId: data.taskId });
-            console.log('✅ agent:log kaydedildi - activityLog:', activityLog.length);
           }
         });
       }

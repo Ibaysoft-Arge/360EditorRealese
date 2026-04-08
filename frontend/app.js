@@ -51,15 +51,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Window kapanmadan önce localStorage durumunu logla
-window.addEventListener('beforeunload', () => {
-  console.log('🚪 Window kapanıyor - localStorage durumu:');
-  console.log('   activityLog:', localStorage.getItem('activityLog') ? 'VAR' : 'YOK');
-  console.log('   pmConversations:', localStorage.getItem('pmConversations') ? 'VAR' : 'YOK');
-  console.log('   360editor-theme:', localStorage.getItem('360editor-theme') || 'YOK');
-  console.log('   telegramBotToken:', localStorage.getItem('telegramBotToken') ? 'VAR' : 'YOK');
-  console.log('   telegramChatId:', localStorage.getItem('telegramChatId') ? 'VAR' : 'YOK');
-});
 
 // Socket.IO
 function initSocket() {
@@ -78,18 +69,12 @@ function initSocket() {
     // Socket bağlandıktan sonra Telegram ayarlarını gönder
     const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
     const telegramChatId = localStorage.getItem('telegramChatId') || '';
-    console.log('📱 socket.on(connect) - localStorage\'dan okunan:', {
-      token: telegramBotToken ? `${telegramBotToken.substring(0, 10)}...` : 'BOŞ',
-      chatId: telegramChatId || 'BOŞ'
-    });
     if (telegramBotToken && telegramChatId) {
       socket.emit('telegram:config', {
         botToken: telegramBotToken,
         chatId: telegramChatId
       });
-      console.log('✅ Telegram ayarları backend\'e gönderildi (socket connect)');
-    } else {
-      console.warn('⚠️ Telegram ayarları eksik - backend\'e gönderilmedi!');
+      console.log('✅ Telegram ayarları backend\'e gönderildi');
     }
   });
 
@@ -103,12 +88,7 @@ function initSocket() {
     agents = state.agents;
     tasks = state.tasks || [];
 
-    console.log('✅ initial:state alındı:', {
-      workspaces: workspaces.length,
-      agents: agents.length,
-      tasks: tasks.length
-    });
-    console.log('📋 Tasks:', tasks);
+    console.log('✅ 360 Editor hazır:', workspaces.length, 'proje,', agents.length, 'agent,', tasks.length, 'görev');
 
     // Dashboard için güncelle
     window.workspaces = workspaces;
@@ -647,19 +627,10 @@ function renderWorkspaces() {
   }
 
   const allTasks = window.tasks || tasks || [];
-  console.log('🔍 renderWorkspaces - allTasks:', allTasks.length, allTasks);
-  console.log('🔍 expandedWorkspaces:', window.expandedWorkspaces);
 
   container.innerHTML = workspaces.map(ws => {
     const workspaceTasks = allTasks.filter(t => t.workspaceId === ws.id);
     const isExpanded = window.expandedWorkspaces && window.expandedWorkspaces[ws.id];
-
-    console.log(`🔍 Workspace ${ws.name}:`, {
-      id: ws.id,
-      tasksCount: workspaceTasks.length,
-      isExpanded: isExpanded,
-      tasks: workspaceTasks
-    });
 
     return `
       <div class="workspace-item-wrapper">
@@ -699,18 +670,12 @@ if (!window.expandedWorkspaces) {
 function toggleWorkspaceTasks(workspaceId) {
   window.expandedWorkspaces[workspaceId] = !window.expandedWorkspaces[workspaceId];
 
-  console.log('🔄 Toggle:', workspaceId, '→', window.expandedWorkspaces[workspaceId]);
-
   const allWorkspaces = window.workspaces || workspaces || [];
   const ws = allWorkspaces.find(w => w.id === workspaceId);
   if (ws) {
     const action = window.expandedWorkspaces[workspaceId] ? t('workspace_opened') : t('workspace_closed');
     addActivity('system', `📁 "${ws.name}" ${t('workspace_tasks')} ${action}`);
   }
-
-  // Force reload tasks
-  const allTasks = window.tasks || tasks || [];
-  console.log('📋 Rendering with tasks:', allTasks.length);
 
   renderWorkspaces();
 }
@@ -1150,7 +1115,6 @@ function loadSidebarStates() {
     mainLayout.classList.add('both-collapsed');
   }
 
-  console.log('📂 Sidebar durumları yüklendi - Sol:', leftCollapsed ? 'Kapalı' : 'Açık', 'Sağ:', rightCollapsed ? 'Kapalı' : 'Açık');
 }
 
 // Settings Drawer
@@ -1172,20 +1136,13 @@ function openSettings() {
   }
 
   // Telegram ayarlarını yükle
-  console.log('📱 openSettings: Telegram ayarları localStorage\'dan yükleniyor...');
   const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
   const telegramChatId = localStorage.getItem('telegramChatId') || '';
-  console.log('📱 localStorage\'dan okunan:', {
-    token: telegramBotToken ? `${telegramBotToken.substring(0, 10)}...` : 'BOŞ',
-    chatId: telegramChatId || 'BOŞ'
-  });
   if (document.getElementById('telegramBotToken')) {
     document.getElementById('telegramBotToken').value = telegramBotToken;
-    console.log('✅ Token input\'a yazıldı');
   }
   if (document.getElementById('telegramChatId')) {
     document.getElementById('telegramChatId').value = telegramChatId;
-    console.log('✅ ChatId input\'a yazıldı');
   }
 
   // PM Personality'yi yükle
@@ -1200,7 +1157,6 @@ function openSettings() {
     document.getElementById('claudeModel').value = claudeModel;
   }
 
-  console.log('⚙️ Settings drawer açıldı, tüm ayarlar yüklendi');
 
   // Hakkında metnini güncelle
   if (typeof updateAboutText === 'function') {
@@ -1236,29 +1192,23 @@ function switchSettingsTab(tabName) {
 window.switchSettingsTab = switchSettingsTab;
 
 function saveSettings() {
-  console.log('🔧 saveSettings() çağrıldı');
-
   // Tema kaydet
   const theme = document.getElementById('themeSelect').value;
-  console.log('🎨 Tema:', theme);
   if (theme && typeof changeTheme === 'function') {
     changeTheme(theme);
   }
 
   // Dil kaydet
   const language = document.getElementById('languageSelect').value;
-  console.log('🌍 Dil:', language);
   if (language && typeof changeLanguage === 'function') {
     changeLanguage(language);
   }
 
   const personality = document.getElementById('pmPersonality').value;
-  console.log('😎 PM Personality:', personality);
   localStorage.setItem('pmPersonality', personality);
 
   // Claude Model seçimi
   const claudeModel = document.getElementById('claudeModel').value;
-  console.log('🤖 Claude Model:', claudeModel);
   localStorage.setItem('claudeModel', claudeModel);
 
   // Backend'e model seçimini gönder
@@ -1268,25 +1218,11 @@ function saveSettings() {
   const telegramBotTokenInput = document.getElementById('telegramBotToken');
   const telegramChatIdInput = document.getElementById('telegramChatId');
 
-  console.log('📱 Telegram input elementleri:', {
-    tokenInput: telegramBotTokenInput ? 'VAR' : 'YOK',
-    chatIdInput: telegramChatIdInput ? 'VAR' : 'YOK'
-  });
-
   const telegramBotToken = telegramBotTokenInput ? telegramBotTokenInput.value : '';
   const telegramChatId = telegramChatIdInput ? telegramChatIdInput.value : '';
 
-  console.log('💾 Telegram ayarları kaydediliyor:', {
-    token: telegramBotToken ? `${telegramBotToken.substring(0, 10)}...` : 'BOŞ',
-    chatId: telegramChatId || 'BOŞ'
-  });
-
   localStorage.setItem('telegramBotToken', telegramBotToken);
   localStorage.setItem('telegramChatId', telegramChatId);
-
-  console.log('✅ Telegram ayarları localStorage\'a kaydedildi');
-  console.log('🔍 Kontrol: localStorage.getItem(telegramBotToken):', localStorage.getItem('telegramBotToken'));
-  console.log('🔍 Kontrol: localStorage.getItem(telegramChatId):', localStorage.getItem('telegramChatId'));
 
   // Backend'e telegram ayarlarını gönder
   if (telegramBotToken && telegramChatId) {
@@ -1319,23 +1255,12 @@ function loadSettings() {
   const telegramBotToken = localStorage.getItem('telegramBotToken') || '';
   const telegramChatId = localStorage.getItem('telegramChatId') || '';
 
-  console.log('📱 LocalStorage Telegram verileri:', {
-    token: telegramBotToken ? `${telegramBotToken.substring(0, 10)}...` : 'YOK',
-    chatId: telegramChatId || 'YOK'
-  });
-
   if (document.getElementById('telegramBotToken')) {
     document.getElementById('telegramBotToken').value = telegramBotToken;
-    console.log('✅ Telegram Bot Token input\'a yüklendi');
-  } else {
-    console.warn('⚠️ telegramBotToken input bulunamadı!');
   }
 
   if (document.getElementById('telegramChatId')) {
     document.getElementById('telegramChatId').value = telegramChatId;
-    console.log('✅ Telegram Chat ID input\'a yüklendi');
-  } else {
-    console.warn('⚠️ telegramChatId input bulunamadı!');
   }
 
   // Dil ayarını yükle VE UYGULA
