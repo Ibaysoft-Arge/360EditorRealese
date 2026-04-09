@@ -1,6 +1,6 @@
 {
   "name": "360editor",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "360 Editor - AI Agent IDE powered by Claude Code",
   "main": "electron-main.js",
   "scripts": {
