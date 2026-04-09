@@ -44,22 +44,30 @@ class PMManager {
 
     // Database'e kaydet
     if (this.db) {
-      const task = this.taskManager.getTask(taskId);
-      this.db.savePMConversation({
-        taskId,
-        taskName: task ? task.title : 'Görev',
-        from,
-        message,
-        timestamp: messageData.timestamp
-      });
+      try {
+        const task = this.taskManager.getTask(taskId);
+        this.db.savePMConversation({
+          taskId,
+          taskName: task ? task.title : 'Görev',
+          from,
+          message,
+          timestamp: messageData.timestamp
+        });
 
-      this.db.saveActivityLog({
-        type: 'pm',
-        message: `${from}: ${message}`,
-        from,
-        timestamp: messageData.timestamp,
-        data: { taskId, to }
-      });
+        this.db.saveActivityLog({
+          type: 'pm',
+          message: `${from}: ${message}`,
+          from,
+          timestamp: messageData.timestamp,
+          data: { taskId, to }
+        });
+
+        console.log('💾 PM mesajı kaydedildi:', from, message.substring(0, 50));
+      } catch (error) {
+        console.error('❌ PM mesajı kaydetme hatası:', error.message);
+      }
+    } else {
+      console.warn('⚠️ Database null! PM mesajı kaydedilemedi');
     }
   }
 
@@ -76,16 +84,36 @@ class PMManager {
 
     // Database'e kaydet
     if (this.db) {
-      const agent = this.agentPoolManager.getAgent(agentId);
-      const agentName = agent ? agent.name : 'Agent';
+      try {
+        const agent = this.agentPoolManager.getAgent(agentId);
+        const agentName = agent ? agent.name : 'Agent';
+        const task = this.taskManager.getTask(taskId);
 
-      this.db.saveActivityLog({
-        type: 'agent',
-        message,
-        from: agentName,
-        timestamp: logData.timestamp,
-        data: { agentId, taskId }
-      });
+        this.db.saveActivityLog({
+          type: 'agent',
+          message,
+          from: agentName,
+          timestamp: logData.timestamp,
+          data: { agentId, taskId }
+        });
+
+        // PM Conversation'a da ekle (agent logları da konuşmada görünsün)
+        if (task) {
+          this.db.savePMConversation({
+            taskId,
+            taskName: task.title,
+            from: agentName,
+            message,
+            timestamp: logData.timestamp
+          });
+        }
+
+        console.log('💾 Agent log kaydedildi:', agentName, message.substring(0, 50));
+      } catch (error) {
+        console.error('❌ Agent log kaydetme hatası:', error.message);
+      }
+    } else {
+      console.warn('⚠️ Database null! Agent log kaydedilemedi');
     }
   }
 

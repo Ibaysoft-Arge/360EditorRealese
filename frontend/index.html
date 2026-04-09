@@ -421,10 +421,24 @@
         <div id="settings-about" class="settings-tab-panel">
           <div style="text-align: center; padding: 2rem 0;">
             <h2 style="margin: 0 0 0.5rem 0;">🏢 360 Editor</h2>
-            <p style="color: var(--text-secondary); margin: 0;">v2.0.0</p>
+            <p style="color: var(--text-secondary); margin: 0;" id="appVersion">v2.0.0</p>
             <p style="color: var(--text-secondary); margin: 1rem 0; font-size: 0.9rem;">
               AI Agent IDE powered by Claude Code
             </p>
+
+            <!-- Güncelleme Kontrolü -->
+            <div style="margin: 1.5rem 0;">
+              <button class="btn" onclick="checkForUpdates()" style="background: var(--accent); padding: 0.8rem 1.5rem;">
+                🔄 Güncellemeleri Kontrol Et
+              </button>
+              <div id="updateStatus" style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);"></div>
+              <div id="updateProgress" style="margin-top: 0.5rem; display: none;">
+                <div style="width: 100%; background: var(--bg-tertiary); border-radius: 4px; height: 20px; overflow: hidden;">
+                  <div id="updateProgressBar" style="height: 100%; background: var(--accent); width: 0%; transition: width 0.3s;"></div>
+                </div>
+                <p id="updateProgressText" style="margin-top: 0.5rem; font-size: 0.85rem;"></p>
+              </div>
+            </div>
 
             <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; text-align: left;">
               <strong>✨ Özellikler:</strong>

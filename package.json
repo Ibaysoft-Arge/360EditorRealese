@@ -11,7 +11,8 @@
     "build": "electron-builder",
     "build:win": "electron-builder --win --x64",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "build:linux": "electron-builder --linux",
+    "publish": "electron-builder --win --x64 --publish always"
   },
   "keywords": [
     "ai",
@@ -20,8 +21,12 @@
     "ide",
     "editor"
   ],
-  "author": "",
+  "author": "Ibaysoft",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ibaysoft-Arge/360EditorRealese.git"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -29,6 +34,8 @@
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.5",
     "dotenv": "^17.4.1",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
     "express": "^4.18.2",
     "monaco-editor": "^0.55.1",
     "node-telegram-bot-api": "^0.66.0",
@@ -45,6 +52,14 @@
   "build": {
     "appId": "com.360editor.app",
     "productName": "360 Editor",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Ibaysoft-Arge",
+        "repo": "360EditorRealese",
+        "releaseType": "release"
+      }
+    ],
     "directories": {
       "output": "dist"
     },

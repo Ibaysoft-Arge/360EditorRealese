@@ -112,6 +112,15 @@ class StorageDB {
       )
     `);
 
+    // Settings tablosu (tema, telegram vs.)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    `);
+
     console.log('✅ Database tables hazır');
   }
 
@@ -320,6 +329,47 @@ class StorageDB {
   deletePMConversationsByTask(taskId) {
     const stmt = this.db.prepare('DELETE FROM pm_conversations WHERE taskId = ?');
     stmt.run(taskId);
+  }
+
+  // SETTINGS
+  saveSetting(key, value) {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO settings (key, value, updatedAt)
+      VALUES (?, ?, ?)
+    `);
+    stmt.run(key, JSON.stringify(value), new Date().toISOString());
+  }
+
+  getSetting(key, defaultValue = null) {
+    const stmt = this.db.prepare('SELECT value FROM settings WHERE key = ?');
+    const result = stmt.get(key);
+    if (result) {
+      try {
+        return JSON.parse(result.value);
+      } catch (e) {
+        return result.value;
+      }
+    }
+    return defaultValue;
+  }
+
+  getAllSettings() {
+    const stmt = this.db.prepare('SELECT * FROM settings');
+    const settings = stmt.all();
+    const result = {};
+    settings.forEach(setting => {
+      try {
+        result[setting.key] = JSON.parse(setting.value);
+      } catch (e) {
+        result[setting.key] = setting.value;
+      }
+    });
+    return result;
+  }
+
+  deleteSetting(key) {
+    const stmt = this.db.prepare('DELETE FROM settings WHERE key = ?');
+    stmt.run(key);
   }
 
   close() {

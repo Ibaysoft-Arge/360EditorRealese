@@ -46,12 +46,26 @@ io.on('connection', (socket) => {
   console.log('🔌 Dashboard bağlandı:', socket.id);
 
   // İlk bağlantıda mevcut state'i gönder
+  const activityLog = db.getAllActivityLogs(100);
+  const pmConversations = db.getAllPMConversations();
+  const settings = db.getAllSettings();
+
+  console.log('📤 Initial state gönderiliyor:', {
+    workspaces: workspaceManager.getAllWorkspaces().length,
+    agents: agentPoolManager.getAllAgents().length,
+    tasks: taskManager.getAllTasks().length,
+    activityLog: activityLog.length,
+    pmConversations: Object.keys(pmConversations).length,
+    settings: Object.keys(settings).length
+  });
+
   socket.emit('initial:state', {
     workspaces: workspaceManager.getAllWorkspaces(),
     agents: agentPoolManager.getAllAgents(),
     tasks: taskManager.getAllTasks(),
-    activityLog: db.getAllActivityLogs(100),
-    pmConversations: db.getAllPMConversations()
+    activityLog,
+    pmConversations,
+    settings
   });
 
   // Claude Code auth durumunu hemen gönder
@@ -428,6 +442,19 @@ io.on('connection', (socket) => {
       message: data.message,
       timestamp: new Date().toISOString()
     });
+  });
+
+  // Settings kaydet
+  socket.on('settings:save', (data) => {
+    const { key, value } = data;
+    db.saveSetting(key, value);
+    console.log('💾 Setting kaydedildi:', key);
+  });
+
+  socket.on('settings:get', (data) => {
+    const { key } = data;
+    const value = db.getSetting(key);
+    socket.emit('settings:value', { key, value });
   });
 
   socket.on('disconnect', () => {

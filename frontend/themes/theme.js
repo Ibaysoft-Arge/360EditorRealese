@@ -42,6 +42,11 @@ function changeTheme(theme) {
     monaco.editor.setTheme(monacoTheme);
   }
 
+  // Database'e kaydet (eğer socket varsa)
+  if (window.socket) {
+    window.socket.emit('settings:save', { key: 'theme', value: theme });
+  }
+
   console.log('🎨 Tema değiştirildi ve kaydedildi:', theme);
 }
 

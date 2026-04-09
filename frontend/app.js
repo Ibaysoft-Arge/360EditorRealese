@@ -22,6 +22,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadSidebarStates(); // Sidebar durumlarını yükle
   setupEventListeners();
   populateRoleDropdown(); // Custom rolleri yükle
+  initAutoUpdater(); // Auto-updater'ı başlat
 
   // PM Chat'i global yap
   window.togglePMChat = togglePMChat;
@@ -84,6 +85,8 @@ function initSocket() {
   });
 
   socket.on('initial:state', (state) => {
+    console.log('📥 Initial state alındı:', state);
+
     workspaces = state.workspaces;
     agents = state.agents;
     tasks = state.tasks || [];
@@ -99,11 +102,47 @@ function initSocket() {
     if (state.activityLog) {
       window.initialActivityLog = state.activityLog;
       console.log('📊 Activity log yüklendi:', state.activityLog.length, 'kayıt');
+      console.log('📊 İlk 3 activity:', state.activityLog.slice(0, 3));
+    } else {
+      console.warn('⚠️ state.activityLog YOK!');
     }
 
     if (state.pmConversations) {
       window.initialPMConversations = state.pmConversations;
       console.log('💬 PM conversations yüklendi:', Object.keys(state.pmConversations).length, 'görev');
+      console.log('💬 Task ID\'ler:', Object.keys(state.pmConversations));
+    } else {
+      console.warn('⚠️ state.pmConversations YOK!');
+    }
+
+    // Settings'i yükle
+    if (state.settings) {
+      console.log('⚙️ Settings yüklendi:', Object.keys(state.settings).length, 'ayar');
+
+      // Tema
+      if (state.settings.theme) {
+        document.body.className = state.settings.theme;
+        const themeSelect = document.getElementById('topThemeSelect');
+        if (themeSelect) themeSelect.value = state.settings.theme;
+      }
+
+      // Claude Model
+      if (state.settings.claudeModel) {
+        localStorage.setItem('claudeModel', state.settings.claudeModel);
+      }
+
+      // PM Personality
+      if (state.settings.pmPersonality) {
+        localStorage.setItem('pmPersonality', state.settings.pmPersonality);
+      }
+
+      // Telegram
+      if (state.settings.telegramBotToken) {
+        localStorage.setItem('telegramBotToken', state.settings.telegramBotToken);
+      }
+      if (state.settings.telegramChatId) {
+        localStorage.setItem('telegramChatId', state.settings.telegramChatId);
+      }
     }
 
     renderAll();
@@ -776,26 +815,109 @@ window.deleteWorkspace = deleteWorkspace;
 
 // Agent adını değiştir
 function renameAgent(agentId, oldName) {
-  const newName = prompt(`Agent adını değiştir:\n\nEski ad: ${oldName}`, oldName);
+  // Modal oluştur
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
 
-  if (newName === null) {
-    // Kullanıcı iptal etti
-    return;
-  }
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2rem;
+    min-width: 400px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  `;
 
-  if (!newName.trim()) {
-    alert('❌ Agent adı boş olamaz!');
-    return;
-  }
+  dialog.innerHTML = `
+    <h3 style="margin: 0 0 1rem 0;">✏️ Agent Adını Değiştir</h3>
+    <div style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+      Eski ad: <strong>${oldName}</strong>
+    </div>
+    <input
+      type="text"
+      id="newAgentName"
+      value="${oldName}"
+      style="width: 100%; padding: 0.8rem; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; font-size: 1rem; margin-bottom: 1.5rem;"
+      autofocus
+    />
+    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+      <button id="cancelRename" class="btn" style="background: var(--bg-secondary);">İptal</button>
+      <button id="confirmRename" class="btn" style="background: var(--accent);">Kaydet</button>
+    </div>
+  `;
 
-  if (newName.trim() === oldName) {
-    // İsim değişmedi
-    return;
-  }
+  modal.appendChild(dialog);
+  document.body.appendChild(modal);
 
-  // Backend'e agent adı değiştirme isteği gönder
-  socket.emit('agent:rename', { agentId, newName: newName.trim() });
-  addActivity('system', `✏️ "${oldName}" → "${newName.trim()}" agent adı değiştirildi`);
+  const input = dialog.querySelector('#newAgentName');
+  const cancelBtn = dialog.querySelector('#cancelRename');
+  const confirmBtn = dialog.querySelector('#confirmRename');
+
+  // Input'a focus ver ve seç
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 100);
+
+  // Enter tuşu ile kaydet
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      confirmBtn.click();
+    }
+  });
+
+  // Esc tuşu ile iptal
+  modal.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      cancelBtn.click();
+    }
+  });
+
+  // İptal
+  cancelBtn.onclick = () => {
+    document.body.removeChild(modal);
+  };
+
+  // Kaydet
+  confirmBtn.onclick = () => {
+    const newName = input.value.trim();
+
+    if (!newName) {
+      alert('❌ Agent adı boş olamaz!');
+      input.focus();
+      return;
+    }
+
+    if (newName === oldName) {
+      document.body.removeChild(modal);
+      return;
+    }
+
+    // Backend'e agent adı değiştirme isteği gönder
+    socket.emit('agent:rename', { agentId, newName });
+    addActivity('system', `✏️ "${oldName}" → "${newName}" agent adı değiştirildi`);
+
+    document.body.removeChild(modal);
+  };
+
+  // Modal dışına tıklayınca kapat
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  };
 }
 
 function deleteAgent(agentId, agentName) {
@@ -1310,10 +1432,12 @@ function saveSettings() {
 
   const personality = document.getElementById('pmPersonality').value;
   localStorage.setItem('pmPersonality', personality);
+  socket.emit('settings:save', { key: 'pmPersonality', value: personality });
 
   // Claude Model seçimi
   const claudeModel = document.getElementById('claudeModel').value;
   localStorage.setItem('claudeModel', claudeModel);
+  socket.emit('settings:save', { key: 'claudeModel', value: claudeModel });
 
   // Backend'e model seçimini gönder
   socket.emit('claude:set-model', { model: claudeModel });
@@ -1327,6 +1451,14 @@ function saveSettings() {
 
   localStorage.setItem('telegramBotToken', telegramBotToken);
   localStorage.setItem('telegramChatId', telegramChatId);
+
+  // Database'e kaydet
+  if (telegramBotToken) {
+    socket.emit('settings:save', { key: 'telegramBotToken', value: telegramBotToken });
+  }
+  if (telegramChatId) {
+    socket.emit('settings:save', { key: 'telegramChatId', value: telegramChatId });
+  }
 
   // Backend'e telegram ayarlarını gönder
   if (telegramBotToken && telegramChatId) {
@@ -2299,6 +2431,123 @@ function updateGlobalTokenDisplay(globalTotals) {
   tokenDisplay.innerHTML = `🪙 ${globalTotals.total.toLocaleString()} tokens`;
   tokenDisplay.title = `Total requests: ${globalTotals.requests}`;
 }
+
+// ============================================
+// AUTO-UPDATER
+// ============================================
+
+let updateInfo = null;
+
+// Auto-updater'ı başlat
+function initAutoUpdater() {
+  if (!window.electron || !window.electron.updater) {
+    console.warn('⚠️ Auto-updater desteklenmiyor (Electron değil)');
+    return;
+  }
+
+  // Mevcut sürümü yükle
+  window.electron.updater.getAppVersion().then(version => {
+    const versionEl = document.getElementById('appVersion');
+    if (versionEl) {
+      versionEl.textContent = `v${version}`;
+    }
+  });
+
+  // Update status event listener
+  window.electron.updater.onUpdateStatus(({ event, data }) => {
+    console.log('📥 Update event:', event, data);
+    handleUpdateEvent(event, data);
+  });
+}
+
+// Update event handler
+function handleUpdateEvent(event, data) {
+  const statusEl = document.getElementById('updateStatus');
+  const progressEl = document.getElementById('updateProgress');
+  const progressBar = document.getElementById('updateProgressBar');
+  const progressText = document.getElementById('updateProgressText');
+
+  if (!statusEl) return;
+
+  switch (event) {
+    case 'checking-for-update':
+      statusEl.innerHTML = '🔍 Güncellemeler kontrol ediliyor...';
+      statusEl.style.color = 'var(--text-secondary)';
+      break;
+
+    case 'update-available':
+      updateInfo = data;
+      statusEl.innerHTML = `✅ Yeni sürüm mevcut: <strong>v${data.version}</strong>`;
+      statusEl.style.color = 'var(--success)';
+      showNotification('🎉 Yeni Sürüm Mevcut!', `360 Editor v${data.version} yayınlandı!`);
+      break;
+
+    case 'update-not-available':
+      statusEl.innerHTML = `✅ Güncel sürüm kullanılıyor (v${data.version})`;
+      statusEl.style.color = 'var(--success)';
+      break;
+
+    case 'download-progress':
+      if (progressEl) progressEl.style.display = 'block';
+      if (progressBar) progressBar.style.width = `${Math.round(data.percent)}%`;
+      if (progressText) {
+        const speed = (data.bytesPerSecond / 1024 / 1024).toFixed(2);
+        progressText.textContent = `📥 İndiriliyor: ${Math.round(data.percent)}% (${speed} MB/s)`;
+      }
+      statusEl.innerHTML = `📥 Güncelleme indiriliyor...`;
+      statusEl.style.color = 'var(--accent)';
+      break;
+
+    case 'update-downloaded':
+      if (progressEl) progressEl.style.display = 'none';
+      statusEl.innerHTML = `✅ Güncelleme indirildi! <button class="btn" onclick="installUpdate()" style="margin-left: 1rem; background: var(--success); padding: 0.5rem 1rem;">Yeniden Başlat ve Güncelle</button>`;
+      statusEl.style.color = 'var(--success)';
+      showNotification('✅ Güncelleme Hazır!', 'Yeniden başlatarak kurabilirsiniz.');
+      break;
+
+    case 'error':
+      statusEl.innerHTML = `❌ Hata: ${data.message}`;
+      statusEl.style.color = 'var(--error)';
+      if (progressEl) progressEl.style.display = 'none';
+      break;
+  }
+}
+
+// Manuel güncelleme kontrolü
+function checkForUpdates() {
+  if (!window.electron || !window.electron.updater) {
+    alert('❌ Auto-updater sadece Electron uygulamasında çalışır!');
+    return;
+  }
+
+  const statusEl = document.getElementById('updateStatus');
+  if (statusEl) {
+    statusEl.innerHTML = '🔍 Güncellemeler kontrol ediliyor...';
+    statusEl.style.color = 'var(--text-secondary)';
+  }
+
+  window.electron.updater.checkForUpdates();
+}
+
+// Güncellemeyi indir
+function downloadUpdate() {
+  if (!window.electron || !window.electron.updater) return;
+  window.electron.updater.downloadUpdate();
+}
+
+// Güncellemeyi kur
+function installUpdate() {
+  if (!window.electron || !window.electron.updater) return;
+
+  if (confirm('🔄 Uygulamayı yeniden başlatıp güncellemeyi kurmak istiyor musunuz?')) {
+    window.electron.updater.installUpdate();
+  }
+}
+
+// Global yap
+window.checkForUpdates = checkForUpdates;
+window.downloadUpdate = downloadUpdate;
+window.installUpdate = installUpdate;
 
 window.switchMainTab = switchMainTab;
 window.renderTasksView = renderTasksView;
