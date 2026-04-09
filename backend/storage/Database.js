@@ -88,6 +88,30 @@ class StorageDB {
       // Kolon zaten varsa hata verir, ignore et
     }
 
+    // Activity Log tablosu (kalıcı aktivite kaydı)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS activity_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        from_user TEXT,
+        timestamp TEXT NOT NULL,
+        data TEXT
+      )
+    `);
+
+    // PM Conversations tablosu (task bazında konuşmalar)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS pm_conversations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        taskId TEXT NOT NULL,
+        taskName TEXT NOT NULL,
+        from_user TEXT NOT NULL,
+        message TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+      )
+    `);
+
     console.log('✅ Database tables hazır');
   }
 
@@ -197,6 +221,105 @@ class StorageDB {
   deleteTask(id) {
     const stmt = this.db.prepare('DELETE FROM tasks WHERE id = ?');
     stmt.run(id);
+  }
+
+  // ACTIVITY LOG
+  saveActivityLog(activity) {
+    const stmt = this.db.prepare(`
+      INSERT INTO activity_log (type, message, from_user, timestamp, data)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      activity.type,
+      activity.message,
+      activity.from || null,
+      activity.timestamp,
+      JSON.stringify(activity.data || {})
+    );
+  }
+
+  getAllActivityLogs(limit = 100) {
+    const stmt = this.db.prepare(`
+      SELECT * FROM activity_log
+      ORDER BY timestamp DESC
+      LIMIT ?
+    `);
+    const logs = stmt.all(limit);
+    return logs.map(log => ({
+      ...log,
+      data: JSON.parse(log.data || '{}'),
+      from: log.from_user
+    }));
+  }
+
+  clearOldActivityLogs(keepDays = 7) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - keepDays);
+    const stmt = this.db.prepare(`
+      DELETE FROM activity_log
+      WHERE timestamp < ?
+    `);
+    stmt.run(cutoffDate.toISOString());
+  }
+
+  // PM CONVERSATIONS
+  savePMConversation(conversation) {
+    const stmt = this.db.prepare(`
+      INSERT INTO pm_conversations (taskId, taskName, from_user, message, timestamp)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      conversation.taskId,
+      conversation.taskName,
+      conversation.from,
+      conversation.message,
+      conversation.timestamp
+    );
+  }
+
+  getPMConversationsByTask(taskId) {
+    const stmt = this.db.prepare(`
+      SELECT * FROM pm_conversations
+      WHERE taskId = ?
+      ORDER BY timestamp ASC
+    `);
+    const messages = stmt.all(taskId);
+    return messages.map(msg => ({
+      from: msg.from_user,
+      message: msg.message,
+      timestamp: msg.timestamp
+    }));
+  }
+
+  getAllPMConversations() {
+    const stmt = this.db.prepare(`
+      SELECT * FROM pm_conversations
+      ORDER BY timestamp DESC
+    `);
+    const conversations = stmt.all();
+
+    // Task ID'ye göre grupla
+    const grouped = {};
+    conversations.forEach(conv => {
+      if (!grouped[conv.taskId]) {
+        grouped[conv.taskId] = {
+          taskName: conv.taskName,
+          messages: []
+        };
+      }
+      grouped[conv.taskId].messages.push({
+        from: conv.from_user,
+        message: conv.message,
+        timestamp: conv.timestamp
+      });
+    });
+
+    return grouped;
+  }
+
+  deletePMConversationsByTask(taskId) {
+    const stmt = this.db.prepare('DELETE FROM pm_conversations WHERE taskId = ?');
+    stmt.run(taskId);
   }
 
   close() {

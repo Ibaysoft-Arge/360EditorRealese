@@ -4,38 +4,23 @@ let pmConversations = {};
 let currentFilter = 'all';
 let currentTaskFilter = null;
 
-// LocalStorage'dan yükle
+// Backend'den yükle (window.initialActivityLog ve window.initialPMConversations)
 function loadDashboardData() {
-  const savedLogs = localStorage.getItem('activityLog');
-  const savedConversations = localStorage.getItem('pmConversations');
-
-  if (savedLogs) {
-    try {
-      activityLog = JSON.parse(savedLogs);
-      console.log('✅ Dashboard yüklendi:', activityLog.length, 'aktivite,', Object.keys(pmConversations).length, 'konuşma');
-    } catch (e) {
-      console.error('❌ Activity log parse hatası:', e);
-    }
+  // Önce backend'den gelen verileri yükle
+  if (window.initialActivityLog) {
+    activityLog = window.initialActivityLog;
+    console.log('✅ Activity log backend\'den yüklendi:', activityLog.length, 'aktivite');
   }
 
-  if (savedConversations) {
-    try {
-      pmConversations = JSON.parse(savedConversations);
-    } catch (e) {
-      console.error('❌ PM conversations parse hatası:', e);
-    }
+  if (window.initialPMConversations) {
+    pmConversations = window.initialPMConversations;
+    console.log('✅ PM conversations backend\'den yüklendi:', Object.keys(pmConversations).length, 'konuşma');
   }
+
+  console.log('✅ Dashboard hazır:', activityLog.length, 'aktivite,', Object.keys(pmConversations).length, 'konuşma');
 }
 
-// LocalStorage'a kaydet
-function saveDashboardData() {
-  try {
-    localStorage.setItem('activityLog', JSON.stringify(activityLog));
-    localStorage.setItem('pmConversations', JSON.stringify(pmConversations));
-  } catch (e) {
-    console.error('❌ localStorage kaydetme hatası:', e);
-  }
-}
+// saveDashboardData artık gerekli değil - backend otomatik kaydediyor
 
 function initDashboard() {
   loadDashboardData(); // İlk yüklemede veriyi al
@@ -65,7 +50,7 @@ function addActivityLog(type, message, data = {}) {
     activityLog = activityLog.slice(0, 100);
   }
 
-  saveDashboardData(); // LocalStorage'a kaydet
+  // Backend otomatik kaydediyor, localStorage'a gerek yok
   renderActivityTimeline();
 }
 
@@ -83,7 +68,7 @@ function addPMConversation(taskId, taskName, from, message) {
     timestamp: new Date().toISOString()
   });
 
-  saveDashboardData(); // LocalStorage'a kaydet
+  // Backend otomatik kaydediyor, localStorage'a gerek yok
   renderPMConversations();
 }
 

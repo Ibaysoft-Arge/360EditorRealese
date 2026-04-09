@@ -2,14 +2,15 @@ const QueueManager = require('../../bridge/queue-manager');
 const ClaudeChannelsHandler = require('../claude/ClaudeChannelsHandler');
 
 class PMManager {
-  constructor(io, workspaceManager, agentPoolManager, taskManager, telegramManager = null) {
+  constructor(io, workspaceManager, agentPoolManager, taskManager, telegramManager = null, db = null) {
     this.io = io;
     this.workspaceManager = workspaceManager;
     this.agentPoolManager = agentPoolManager;
     this.taskManager = taskManager;
     this.telegramManager = telegramManager;
+    this.db = db; // Database referansı
     this.queueManager = new QueueManager();
-    this.claudeHandler = new ClaudeChannelsHandler();
+    this.claudeHandler = new ClaudeChannelsHandler(io); // io parametresini geç
     this.taskHistory = [];
     this.activeTasks = new Map();
 
@@ -29,6 +30,65 @@ class PMManager {
     });
   }
 
+  // Helper: PM mesajını hem emit et hem database'e kaydet
+  emitAndSavePMMessage(taskId, from, message, to = null) {
+    const messageData = {
+      taskId,
+      from,
+      message,
+      to,
+      timestamp: new Date().toISOString()
+    };
+
+    this.io.emit('pm:message', messageData);
+
+    // Database'e kaydet
+    if (this.db) {
+      const task = this.taskManager.getTask(taskId);
+      this.db.savePMConversation({
+        taskId,
+        taskName: task ? task.title : 'Görev',
+        from,
+        message,
+        timestamp: messageData.timestamp
+      });
+
+      this.db.saveActivityLog({
+        type: 'pm',
+        message: `${from}: ${message}`,
+        from,
+        timestamp: messageData.timestamp,
+        data: { taskId, to }
+      });
+    }
+  }
+
+  // Helper: Agent log hem emit et hem database'e kaydet
+  emitAndSaveAgentLog(agentId, taskId, message) {
+    const logData = {
+      agentId,
+      taskId,
+      message,
+      timestamp: new Date().toISOString()
+    };
+
+    this.io.emit('agent:log', logData);
+
+    // Database'e kaydet
+    if (this.db) {
+      const agent = this.agentPoolManager.getAgent(agentId);
+      const agentName = agent ? agent.name : 'Agent';
+
+      this.db.saveActivityLog({
+        type: 'agent',
+        message,
+        from: agentName,
+        timestamp: logData.timestamp,
+        data: { agentId, taskId }
+      });
+    }
+  }
+
   // Patron'dan PM'e görev gelir
   async assignTaskToPM(taskRequest) {
     const taskId = Date.now().toString();
@@ -42,23 +102,30 @@ class PMManager {
     }
 
     // Patron'a bilgi ver
+    const receivedMessage = `PM: "Anladım patron! '${taskRequest.task}' görevi için ekibi topluyorum. Hemen işe koyuluyoruz!"`;
     this.io.emit('pm:task-received', {
       taskId,
-      message: `PM: "Anladım patron! '${taskRequest.task}' görevi için ekibi topluyorum. Hemen işe koyuluyoruz!"`,
+      message: receivedMessage,
       timestamp: new Date().toISOString()
     });
+
+    // Database'e kaydet
+    if (this.db) {
+      this.db.saveActivityLog({
+        type: 'pm',
+        message: receivedMessage,
+        from: 'PM',
+        timestamp: new Date().toISOString(),
+        data: { taskId }
+      });
+    }
 
     // Gerçek Claude PM çağrısı yap
     try {
       const workspaces = this.workspaceManager.getAllWorkspaces();
       const agents = this.agentPoolManager.getAllAgents();
 
-      this.io.emit('pm:message', {
-        taskId: taskId,
-        from: 'PM',
-        message: '🤔 Görevi analiz ediyorum, hangi agentları kullanayım...',
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSavePMMessage(taskId, 'PM', '🤔 Görevi analiz ediyorum, hangi agentları kullanayım...');
 
       // Eğer kullanıcıdan ek bilgi geldiyse, task'a ekle
       if (taskRequest.additionalInfo) {
@@ -72,7 +139,8 @@ class PMManager {
         taskRequest,
         workspaces,
         agents,
-        personality
+        personality,
+        taskId
       );
 
       // Task oluştur
@@ -116,12 +184,7 @@ class PMManager {
         timestamp: new Date().toISOString()
       });
 
-      this.io.emit('pm:message', {
-        taskId: taskId,
-        from: 'PM',
-        message: `🤔 Bir sorum var: ${pmPlan.question}`,
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSavePMMessage(taskId, 'PM', `🤔 Bir sorum var: ${pmPlan.question}`);
 
       // Telegram bildirimi: PM soru sordu
       if (this.telegramManager && this.telegramManager.isConfigured) {
@@ -137,13 +200,7 @@ class PMManager {
 
     // PM mesajlarını gönder
     pmPlan.pmMessages.forEach(msg => {
-      this.io.emit('pm:message', {
-        taskId: taskId,
-        from: 'PM',
-        to: msg.to,
-        message: msg.message,
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSavePMMessage(taskId, 'PM', msg.message, msg.to);
     });
 
     // Agentları ata ve çalıştır
@@ -161,12 +218,7 @@ class PMManager {
           agentAssignment.subTask
         );
 
-        this.io.emit('agent:log', {
-          agentId: agentAssignment.agentId,
-          taskId: taskId,
-          message: `🚀 Göreve başladı: ${agentAssignment.subTask}`,
-          timestamp: new Date().toISOString()
-        });
+        this.emitAndSaveAgentLog(agentAssignment.agentId, taskId, `🚀 Göreve başladı: ${agentAssignment.subTask}`);
 
         // Telegram bildirimi: Agent atandı
         if (this.telegramManager && this.telegramManager.isConfigured) {
@@ -186,12 +238,7 @@ class PMManager {
     }
 
     // Özet mesajı
-    this.io.emit('pm:message', {
-      taskId: taskId,
-      from: 'PM',
-      message: `✅ ${pmPlan.selectedAgents.length} agent işe koyuldu. ${pmPlan.summary}`,
-      timestamp: new Date().toISOString()
-    });
+    this.emitAndSavePMMessage(taskId, 'PM', `✅ ${pmPlan.selectedAgents.length} agent işe koyuldu. ${pmPlan.summary}`);
   }
 
   // Agent görevi çalıştır
@@ -199,35 +246,20 @@ class PMManager {
     try {
       const agent = this.agentPoolManager.getAgent(agentAssignment.agentId);
 
-      this.io.emit('agent:log', {
-        agentId: agentAssignment.agentId,
-        taskId: taskId,
-        message: '⚙️ Agent çalışıyor...',
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSaveAgentLog(agentAssignment.agentId, taskId, '⚙️ Agent çalışıyor...');
 
       // Agent PM'e başladığını bildirir
-      this.io.emit('pm:message', {
-        taskId: taskId,
-        from: agent.name,
-        to: 'PM',
-        message: `🚀 Göreve başladım PM! ${agentAssignment.subTask.substring(0, 80)}...`,
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSavePMMessage(taskId, agent.name, `🚀 Göreve başladım PM! ${agentAssignment.subTask.substring(0, 80)}...`, 'PM');
 
       // Claude API ile agent çalıştır
       const result = await this.claudeHandler.runAgent(
         agent,
         agentAssignment.subTask,
-        workspace
+        workspace,
+        taskId
       );
 
-      this.io.emit('agent:log', {
-        agentId: agentAssignment.agentId,
-        taskId: taskId,
-        message: `📝 Rapor:\n${result.substring(0, 200)}...`,
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSaveAgentLog(agentAssignment.agentId, taskId, `📝 Rapor:\n${result.substring(0, 200)}...`);
 
       // Agent sonucunu task'a ekle
       const task = this.taskManager.getTask(taskId);
@@ -249,47 +281,23 @@ class PMManager {
       }
 
       // PM agent'a geri bildirim verir
-      this.io.emit('pm:message', {
-        taskId: taskId,
-        from: 'PM',
-        to: agent.name,
-        message: `Aferin ${agent.name}! İyi iş çıkardın.`,
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSavePMMessage(taskId, 'PM', `Aferin ${agent.name}! İyi iş çıkardın.`, agent.name);
 
       // Agent cevap verir
-      this.io.emit('pm:message', {
-        taskId: taskId,
-        from: agent.name,
-        to: 'PM',
-        message: `✅ Görev tamamlandı PM! ${agentAssignment.subTask.substring(0, 80)}...`,
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSavePMMessage(taskId, agent.name, `✅ Görev tamamlandı PM! ${agentAssignment.subTask.substring(0, 80)}...`, 'PM');
 
       // Diğer çalışan agent'lara bildir
       const activeAgents = this.agentPoolManager.getAllAgents()
         .filter(a => a.status === 'working' && a.id !== agentAssignment.agentId);
 
       if (activeAgents.length > 0) {
-        this.io.emit('pm:message', {
-          taskId: taskId,
-          from: 'PM',
-          to: 'Takım',
-          message: `📢 ${agent.name} işini bitirdi. Sıra sizde, hızlı olun!`,
-          timestamp: new Date().toISOString()
-        });
+        this.emitAndSavePMMessage(taskId, 'PM', `📢 ${agent.name} işini bitirdi. Sıra sizde, hızlı olun!`, 'Takım');
       } else {
         // Tüm agent'lar bitti, task'ı tamamla
         const task = this.taskManager.getTask(taskId);
         this.taskManager.updateTaskStatus(taskId, 'completed', task?.result);
 
-        this.io.emit('pm:message', {
-          taskId: taskId,
-          from: 'PM',
-          to: 'Patron',
-          message: `🎉 Patron, görev tamamlandı! Tüm agent'lar işini bitirdi. Kontrol et!`,
-          timestamp: new Date().toISOString()
-        });
+        this.emitAndSavePMMessage(taskId, 'PM', `🎉 Patron, görev tamamlandı! Tüm agent'lar işini bitirdi. Kontrol et!`, 'Patron');
 
         // Telegram bildirimi: Görev tamamlandı
         if (this.telegramManager && this.telegramManager.isConfigured) {
@@ -307,12 +315,7 @@ class PMManager {
       }
 
     } catch (error) {
-      this.io.emit('agent:log', {
-        agentId: agentAssignment.agentId,
-        taskId: taskId,
-        message: `❌ Görev başarısız: ${error.message}`,
-        timestamp: new Date().toISOString()
-      });
+      this.emitAndSaveAgentLog(agentAssignment.agentId, taskId, `❌ Görev başarısız: ${error.message}`);
 
       // Telegram bildirimi: Görev başarısız
       if (this.telegramManager && this.telegramManager.isConfigured) {

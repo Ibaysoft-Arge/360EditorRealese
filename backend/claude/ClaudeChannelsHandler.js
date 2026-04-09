@@ -2,10 +2,12 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const Anthropic = require('@anthropic-ai/sdk');
 const AgentMemoryManager = require('../managers/AgentMemoryManager');
 
 class ClaudeChannelsHandler {
-  constructor() {
+  constructor(io = null) {
+    this.io = io;
     this.authenticated = false;
     this.memoryManager = new AgentMemoryManager();
 
@@ -16,12 +18,33 @@ class ClaudeChannelsHandler {
     // Model seçimi (default: sonnet - hızlı ve dengeli)
     this.currentModel = 'sonnet';
 
-    // Usage tracking
+    // Anthropic SDK (direkt API kullanımı için)
+    this.anthropic = null;
+    this.useDirectAPI = false;
+    this.initializeAnthropicSDK();
+
+    // Usage tracking (geliştirilmiş)
     this.totalTokensUsed = 0;
     this.totalRequests = 0;
     this.usageHistory = [];
+    this.currentTaskTokens = {}; // Task bazlı token tracking
 
     this.checkAuth();
+  }
+
+  // Anthropic SDK'yı başlat
+  initializeAnthropicSDK() {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (apiKey && apiKey.startsWith('sk-ant-')) {
+      this.anthropic = new Anthropic({
+        apiKey: apiKey
+      });
+      this.useDirectAPI = true;
+      console.log('✅ Anthropic SDK hazır (Direkt API kullanımı)');
+    } else {
+      this.useDirectAPI = false;
+      console.log('✅ Claude CLI kullanılacak (Token tracking kapalı)');
+    }
   }
 
   // Model değiştir
@@ -73,8 +96,8 @@ class ClaudeChannelsHandler {
   }
 
   // PM görevi için Claude Code çalıştır
-  async processPMTask(taskRequest, workspaces, agents, personality = 'sert') {
-    if (!this.authenticated) {
+  async processPMTask(taskRequest, workspaces, agents, personality = 'sert', taskId = null) {
+    if (!this.authenticated && !this.useDirectAPI) {
       throw new Error('Claude Code ile giriş yapılmamış! Terminal: claude login');
     }
 
@@ -138,7 +161,7 @@ Eğer görev belirsizse:
 TEKRAR: SADECE JSON yaz, başka hiçbir şey yazma!`;
 
     try {
-      const response = await this.runClaudeCommand(prompt, workspace.path);
+      const response = await this.runClaudeCommand(prompt, workspace.path, 'pm', taskId);
 
       // JSON parse et
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -153,8 +176,8 @@ TEKRAR: SADECE JSON yaz, başka hiçbir şey yazma!`;
   }
 
   // Agent çalıştır
-  async runAgent(agentConfig, task, workspace) {
-    if (!this.authenticated) {
+  async runAgent(agentConfig, task, workspace, taskId = null) {
+    if (!this.authenticated && !this.useDirectAPI) {
       throw new Error('Claude Code ile giriş yapılmamış!');
     }
 
@@ -189,22 +212,26 @@ SADECE RAPOR YAZMA! GERÇEKTEN KOD YAZ, DOSYALARI DEĞİŞTİR!
 Görevi tamamla:`;
 
     try {
-      return await this.runClaudeCommand(prompt, workspace.path);
+      return await this.runClaudeCommand(prompt, workspace.path, agentConfig.id, taskId);
     } catch (error) {
       throw new Error('Agent Error: ' + error.message);
     }
   }
 
-  // Claude Code komutunu çalıştır
-  runClaudeCommand(prompt, workingDir) {
+  // Claude Code komutunu çalıştır (Direkt API veya CLI)
+  async runClaudeCommand(prompt, workingDir, agentId = null, taskId = null) {
+    // Direkt API kullanımı varsa
+    if (this.useDirectAPI && this.anthropic) {
+      return await this.runDirectAPI(prompt, agentId, taskId);
+    }
+
+    // Claude CLI kullanımı (fallback)
     return new Promise((resolve, reject) => {
-      // --dangerously-skip-permissions = Tüm izin kontrollerini atla
-      // Bu workspace izole olduğu için güvenli
-      console.log(`🤖 Claude Code çalıştırılıyor (Model: ${this.currentModel})`);
+      console.log(`🤖 Claude CLI çalıştırılıyor (Model: ${this.currentModel})`);
 
       const claudeProcess = spawn(this.claudePath, [
         '--print',
-        '--model', this.currentModel, // Kullanıcının seçtiği model
+        '--model', this.currentModel,
         '--dangerously-skip-permissions'
       ], {
         cwd: workingDir,
@@ -235,10 +262,136 @@ Görevi tamamla:`;
         reject(new Error(`Failed to start Claude: ${error.message}`));
       });
 
-      // Prompt'u stdin'e yaz
       claudeProcess.stdin.write(prompt);
       claudeProcess.stdin.end();
     });
+  }
+
+  // Direkt Anthropic API kullanımı (Token tracking ile)
+  async runDirectAPI(prompt, agentId = null, taskId = null) {
+    try {
+      const startTime = Date.now();
+
+      // Model mapping
+      const modelMap = {
+        'opus': 'claude-opus-4-20250514',
+        'sonnet': 'claude-sonnet-4-20250514',
+        'haiku': 'claude-haiku-4-20250228'
+      };
+
+      const model = modelMap[this.currentModel] || 'claude-sonnet-4-20250514';
+
+      console.log(`🤖 Claude API çağrısı (Model: ${model})`);
+
+      const response = await this.anthropic.messages.create({
+        model: model,
+        max_tokens: 8096,
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      });
+
+      const duration = Date.now() - startTime;
+
+      // Token kullanımı
+      const usage = {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
+        cache_creation_tokens: response.usage.cache_creation_input_tokens || 0,
+        cache_read_tokens: response.usage.cache_read_input_tokens || 0,
+        total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+        duration_ms: duration,
+        model: model,
+        timestamp: new Date().toISOString()
+      };
+
+      // Global tracking
+      this.totalTokensUsed += usage.total_tokens;
+      this.totalRequests++;
+      this.usageHistory.push(usage);
+
+      // Task bazlı tracking
+      if (taskId) {
+        if (!this.currentTaskTokens[taskId]) {
+          this.currentTaskTokens[taskId] = {
+            total_input: 0,
+            total_output: 0,
+            total_cache_creation: 0,
+            total_cache_read: 0,
+            total: 0,
+            requests: 0,
+            agents: {}
+          };
+        }
+
+        this.currentTaskTokens[taskId].total_input += usage.input_tokens;
+        this.currentTaskTokens[taskId].total_output += usage.output_tokens;
+        this.currentTaskTokens[taskId].total_cache_creation += usage.cache_creation_tokens;
+        this.currentTaskTokens[taskId].total_cache_read += usage.cache_read_tokens;
+        this.currentTaskTokens[taskId].total += usage.total_tokens;
+        this.currentTaskTokens[taskId].requests++;
+
+        // Agent bazlı tracking
+        if (agentId) {
+          if (!this.currentTaskTokens[taskId].agents[agentId]) {
+            this.currentTaskTokens[taskId].agents[agentId] = {
+              input: 0,
+              output: 0,
+              total: 0,
+              requests: 0
+            };
+          }
+
+          this.currentTaskTokens[taskId].agents[agentId].input += usage.input_tokens;
+          this.currentTaskTokens[taskId].agents[agentId].output += usage.output_tokens;
+          this.currentTaskTokens[taskId].agents[agentId].total += usage.total_tokens;
+          this.currentTaskTokens[taskId].agents[agentId].requests++;
+        }
+      }
+
+      // Frontend'e token kullanımını bildir
+      if (this.io) {
+        this.io.emit('token:usage', {
+          taskId,
+          agentId,
+          usage,
+          taskTotals: taskId ? this.currentTaskTokens[taskId] : null,
+          globalTotals: {
+            total: this.totalTokensUsed,
+            requests: this.totalRequests
+          }
+        });
+      }
+
+      console.log(`✅ Token kullanımı: ${usage.total_tokens} (in: ${usage.input_tokens}, out: ${usage.output_tokens})`);
+
+      // Response'u text olarak döndür
+      return response.content[0].text;
+
+    } catch (error) {
+      console.error('❌ Anthropic API hatası:', error.message);
+      throw new Error(`Anthropic API Error: ${error.message}`);
+    }
+  }
+
+  // Task token bilgilerini al
+  getTaskTokens(taskId) {
+    return this.currentTaskTokens[taskId] || null;
+  }
+
+  // Task token bilgilerini temizle
+  clearTaskTokens(taskId) {
+    delete this.currentTaskTokens[taskId];
+  }
+
+  // Toplam token istatistikleri
+  getGlobalTokenStats() {
+    return {
+      total_tokens: this.totalTokensUsed,
+      total_requests: this.totalRequests,
+      history: this.usageHistory.slice(-10) // Son 10 çağrı
+    };
   }
 }
 

@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -37,7 +39,7 @@ const taskManager = new TaskManager(io, db);
 const memoryManager = new AgentMemoryManager();
 const gitDiffHelper = new GitDiffHelper();
 const telegramManager = new TelegramManager(io);
-const pmManager = new PMManager(io, workspaceManager, agentPoolManager, taskManager, telegramManager);
+const pmManager = new PMManager(io, workspaceManager, agentPoolManager, taskManager, telegramManager, db);
 
 // Socket.IO bağlantıları
 io.on('connection', (socket) => {
@@ -47,7 +49,9 @@ io.on('connection', (socket) => {
   socket.emit('initial:state', {
     workspaces: workspaceManager.getAllWorkspaces(),
     agents: agentPoolManager.getAllAgents(),
-    tasks: taskManager.getAllTasks()
+    tasks: taskManager.getAllTasks(),
+    activityLog: db.getAllActivityLogs(100),
+    pmConversations: db.getAllPMConversations()
   });
 
   // Claude Code auth durumunu hemen gönder
@@ -402,6 +406,28 @@ io.on('connection', (socket) => {
         message: result.message
       });
     }
+  });
+
+  // Activity Log kaydet
+  socket.on('activity:log', (data) => {
+    db.saveActivityLog({
+      type: data.type,
+      message: data.message,
+      from: data.from || null,
+      timestamp: new Date().toISOString(),
+      data: data.data || {}
+    });
+  });
+
+  // PM Conversation kaydet
+  socket.on('pm:conversation', (data) => {
+    db.savePMConversation({
+      taskId: data.taskId,
+      taskName: data.taskName,
+      from: data.from,
+      message: data.message,
+      timestamp: new Date().toISOString()
+    });
   });
 
   socket.on('disconnect', () => {

@@ -95,6 +95,17 @@ function initSocket() {
     window.agents = agents;
     window.tasks = tasks;
 
+    // Activity log ve PM conversations'ı yükle ve global yap
+    if (state.activityLog) {
+      window.initialActivityLog = state.activityLog;
+      console.log('📊 Activity log yüklendi:', state.activityLog.length, 'kayıt');
+    }
+
+    if (state.pmConversations) {
+      window.initialPMConversations = state.pmConversations;
+      console.log('💬 PM conversations yüklendi:', Object.keys(state.pmConversations).length, 'görev');
+    }
+
     renderAll();
     initDashboard();
   });
@@ -168,6 +179,18 @@ function initSocket() {
     renderTasksView(); // Geniş görünüm de güncellensin
     renderWorkspaces(); // Workspace'lerde görev sayısını güncelle
     addActivity('system', `🎯 Yeni görev: "${task.title}"`);
+
+    // PM Conversation başlat
+    if (typeof addPMConversation === 'function') {
+      addPMConversation(task.id, task.title, 'Sistem', `Görev oluşturuldu: ${task.title}`);
+    }
+
+    // Dashboard tab'ına geç (aktiviteleri görmek için)
+    if (typeof switchMainTab === 'function') {
+      setTimeout(() => {
+        switchMainTab('dashboard');
+      }, 500);
+    }
   });
 
   socket.on('task:updated', (task) => {
@@ -210,14 +233,35 @@ function initSocket() {
 
   socket.on('pm:task-received', (data) => {
     addActivity('pm', data.message);
+
+    // PM Conversation'a ekle
+    if (typeof addPMConversation === 'function' && data.taskId) {
+      addPMConversation(data.taskId, 'Görev', 'PM', data.message);
+    }
   });
 
   socket.on('pm:message', (data) => {
     addActivity('pm', data.message, data.from);
+
+    // PM Conversation'a da ekle
+    if (typeof addPMConversation === 'function' && data.taskId) {
+      const task = tasks.find(t => t.id === data.taskId);
+      const taskName = task ? task.title : 'Görev';
+      addPMConversation(data.taskId, taskName, data.from || 'PM', data.message);
+    }
   });
 
   socket.on('agent:log', (data) => {
     addActivity('agent', data.message);
+
+    // PM Conversation'a ekle
+    if (typeof addPMConversation === 'function' && data.taskId && data.agentId) {
+      const agent = agents.find(a => a.id === data.agentId);
+      const agentName = agent ? agent.name : 'Agent';
+      const task = tasks.find(t => t.id === data.taskId);
+      const taskName = task ? task.title : 'Görev';
+      addPMConversation(data.taskId, taskName, agentName, data.message);
+    }
   });
 
   socket.on('pm:error', (data) => {
@@ -337,6 +381,30 @@ function initSocket() {
     if (diffContentEl) {
       diffContentEl.innerHTML = html;
     }
+  });
+
+  // Token kullanımı event listener
+  socket.on('token:usage', (data) => {
+    console.log('📊 Token kullanımı:', data);
+
+    // Task token bilgilerini güncelle
+    if (data.taskId && data.taskTotals) {
+      updateTaskTokenDisplay(data.taskId, data.taskTotals);
+    }
+
+    // Agent token bilgilerini güncelle
+    if (data.agentId && data.usage) {
+      updateAgentTokenDisplay(data.agentId, data.usage);
+    }
+
+    // Global token bilgilerini güncelle
+    if (data.globalTotals) {
+      updateGlobalTokenDisplay(data.globalTotals);
+    }
+
+    // Activity'e ekle
+    const tokenInfo = `🪙 Token: ${data.usage.total_tokens.toLocaleString()} (in: ${data.usage.input_tokens.toLocaleString()}, out: ${data.usage.output_tokens.toLocaleString()})`;
+    addActivity('system', tokenInfo);
   });
 
   socket.on('task:diff-error', (data) => {
@@ -629,22 +697,28 @@ function renderWorkspaces() {
   const allTasks = window.tasks || tasks || [];
 
   container.innerHTML = workspaces.map(ws => {
-    const workspaceTasks = allTasks.filter(t => t.workspaceId === ws.id);
+    const allWorkspaceTasks = allTasks.filter(t => t.workspaceId === ws.id);
+    // Son 10 görev (en yeniden en eskiye)
+    const workspaceTasks = allWorkspaceTasks
+      .sort((a, b) => new Date(b.createdAt || b.startTime) - new Date(a.createdAt || a.startTime))
+      .slice(0, 10);
     const isExpanded = window.expandedWorkspaces && window.expandedWorkspaces[ws.id];
+    const totalTaskCount = allWorkspaceTasks.length;
 
     return `
       <div class="workspace-item-wrapper">
-        <div class="workspace-item" onclick="${workspaceTasks.length > 0 ? `toggleWorkspaceTasks('${ws.id}')` : `openWorkspace('${ws.id}')`}">
+        <div class="workspace-item" onclick="${totalTaskCount > 0 ? `toggleWorkspaceTasks('${ws.id}')` : `openWorkspace('${ws.id}')`}">
           <div class="name">
-            ${workspaceTasks.length > 0 ? `<span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>` : ''}
+            ${totalTaskCount > 0 ? `<span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>` : ''}
             ${ws.name}
-            ${workspaceTasks.length > 0 ? `<span style="font-size: 0.75rem; opacity: 0.7;">(${workspaceTasks.length})</span>` : ''}
+            ${totalTaskCount > 0 ? `<span style="font-size: 0.75rem; opacity: 0.7;">(${totalTaskCount})</span>` : ''}
           </div>
           <div class="path">${ws.path}</div>
           <button class="btn-icon-sm" onclick="event.stopPropagation(); deleteWorkspace('${ws.id}', '${ws.name}')" title="Workspace'i sil" style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--error); color: white;">🗑️</button>
         </div>
-        ${workspaceTasks.length > 0 && isExpanded ? `
+        ${totalTaskCount > 0 && isExpanded ? `
           <div class="workspace-tasks">
+            ${totalTaskCount > 10 ? `<div style="padding: 0.3rem 0.5rem; font-size: 0.7rem; color: var(--text-secondary); text-align: center;">Son 10 görev gösteriliyor (Toplam: ${totalTaskCount})</div>` : ''}
             ${workspaceTasks.map(task => {
               const statusIcon = task.status === 'completed' ? '✅' : task.status === 'in-progress' ? '🔄' : '⏸️';
 
@@ -838,12 +912,26 @@ function renderTasks() {
     return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
   });
 
+  // Limit
+  const taskLimit = document.getElementById('taskLimit')?.value || '10';
+  const totalFilteredTasks = filteredTasks.length;
+  if (taskLimit !== 'all') {
+    filteredTasks = filteredTasks.slice(0, parseInt(taskLimit));
+  }
+
   if (filteredTasks.length === 0) {
     container.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">Filtre ile eşleşen görev yok</div>`;
     return;
   }
 
-  container.innerHTML = filteredTasks.map(task => {
+  // Limit bilgisi göster
+  const limitInfo = taskLimit !== 'all' && totalFilteredTasks > parseInt(taskLimit)
+    ? `<div style="padding: 0.5rem; text-align: center; font-size: 0.75rem; color: var(--text-secondary); background: var(--bg-tertiary); border-radius: 4px; margin-bottom: 0.5rem;">
+        ${filteredTasks.length} / ${totalFilteredTasks} görev gösteriliyor
+       </div>`
+    : '';
+
+  container.innerHTML = limitInfo + filteredTasks.map(task => {
     const workspace = workspaces.find(w => w.id === task.workspaceId);
     const statusIcon = task.status === 'completed' ? '✅' : task.status === 'in-progress' ? '🔄' : task.status === 'stopped' ? '⏸️' : '⏸️';
     const statusText = task.status === 'completed' ? t('status_completed') : task.status === 'in-progress' ? t('status_in_progress') : task.status === 'stopped' ? t('status_stopped') : t('status_pending');
@@ -993,6 +1081,11 @@ function addActivity(type, message, from = null) {
 
   while (feed.children.length > 50) {
     feed.removeChild(feed.firstChild);
+  }
+
+  // Dashboard activity log'a da ekle
+  if (typeof addActivityLog === 'function') {
+    addActivityLog(type, message, { from });
   }
 }
 
@@ -1779,26 +1872,11 @@ function renderTasksView() {
   const completed = tasks.filter(t => t.status === 'completed').length;
   const stopped = tasks.filter(t => t.status === 'stopped').length;
 
-  const statsContainer = document.querySelector('.tasks-view-stats');
-  if (statsContainer) {
-    statsContainer.innerHTML = `
-      <div style="padding: 0.5rem 1rem; background: rgba(220, 220, 170, 0.2); border-radius: 6px;">
-        <strong>${inProgress}</strong> Devam Ediyor
-      </div>
-      <div style="padding: 0.5rem 1rem; background: rgba(137, 209, 133, 0.2); border-radius: 6px;">
-        <strong>${completed}</strong> Tamamlandı
-      </div>
-      <div style="padding: 0.5rem 1rem; background: rgba(244, 135, 113, 0.2); border-radius: 6px;">
-        <strong>${stopped}</strong> Durduruldu
-      </div>
-      <div style="padding: 0.5rem 1rem; background: var(--bg-tertiary); border-radius: 6px;">
-        <strong>${filteredTasks.length}</strong> / ${tasks.length} Gösteriliyor
-      </div>
-    `;
-  }
+  // İstatistikler limit uygulanmadan ÖNCE hesaplanmalı, sıralama sonrası göster
+  // Bu kod bloğu sıralamanın SONRASINA taşınacak
 
   // Sıralama
-  const sortedTasks = [...filteredTasks].sort((a, b) => {
+  let sortedTasks = [...filteredTasks].sort((a, b) => {
     switch(sortOrder) {
       case 'oldest':
         return new Date(a.startTime) - new Date(b.startTime);
@@ -1812,6 +1890,32 @@ function renderTasksView() {
     }
   });
 
+  // Limit uygula
+  const tasksViewLimit = document.getElementById('tasksViewLimit')?.value || '10';
+  const totalSortedTasks = sortedTasks.length;
+  if (tasksViewLimit !== 'all') {
+    sortedTasks = sortedTasks.slice(0, parseInt(tasksViewLimit));
+  }
+
+  // İstatistikler güncelle
+  const statsContainer = document.querySelector('.tasks-view-stats');
+  if (statsContainer) {
+    statsContainer.innerHTML = `
+      <div style="padding: 0.5rem 1rem; background: rgba(220, 220, 170, 0.2); border-radius: 6px;">
+        <strong>${inProgress}</strong> Devam Ediyor
+      </div>
+      <div style="padding: 0.5rem 1rem; background: rgba(137, 209, 133, 0.2); border-radius: 6px;">
+        <strong>${completed}</strong> Tamamlandı
+      </div>
+      <div style="padding: 0.5rem 1rem; background: rgba(244, 135, 113, 0.2); border-radius: 6px;">
+        <strong>${stopped}</strong> Durduruldu
+      </div>
+      <div style="padding: 0.5rem 1rem; background: var(--bg-tertiary); border-radius: 6px;">
+        <strong>${sortedTasks.length}</strong> / ${tasks.length} Gösteriliyor
+      </div>
+    `;
+  }
+
   if (sortedTasks.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
@@ -1822,7 +1926,14 @@ function renderTasksView() {
     return;
   }
 
-  container.innerHTML = sortedTasks.map(task => {
+  // Limit bilgisi göster
+  const limitInfo = tasksViewLimit !== 'all' && totalSortedTasks > parseInt(tasksViewLimit)
+    ? `<div style="padding: 0.8rem; text-align: center; font-size: 0.85rem; color: var(--text-secondary); background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 1rem;">
+        📊 ${sortedTasks.length} / ${totalSortedTasks} görev gösteriliyor (Filtreden)
+       </div>`
+    : '';
+
+  container.innerHTML = limitInfo + sortedTasks.map(task => {
     const workspace = workspaces.find(w => w.id === task.workspaceId);
     const startTime = new Date(task.startTime).toLocaleString('tr-TR');
     const endTime = task.endTime ? new Date(task.endTime).toLocaleString('tr-TR') : '-';
@@ -2057,10 +2168,15 @@ function retryTask(taskId) {
       task: taskDescription
     });
 
+    // Dashboard tab'ına geç (aktiviteleri görmek için)
+    if (typeof switchMainTab === 'function') {
+      switchMainTab('dashboard');
+    }
+
     // Sağ sidebar'ı aç (eğer kapalıysa)
-    const rightSidebar = document.getElementById('rightSidebar');
-    if (rightSidebar && !rightSidebar.classList.contains('open')) {
-      rightSidebar.classList.add('open');
+    const rightSidebar = document.querySelector('.right-sidebar');
+    if (rightSidebar && rightSidebar.classList.contains('collapsed')) {
+      toggleRightSidebar();
     }
 
     showNotification('🔄 Görev Tekrar Başlatıldı', `"${task.title}" tekrar çalıştırılıyor...`);
@@ -2102,6 +2218,86 @@ function clearRetryNotes(taskId) {
     localStorage.removeItem(`retryNotes_${taskId}`);
     showNotification('🗑️ Temizlendi', 'Notlar temizlendi');
   }
+}
+
+// ============================================
+// TOKEN KULLANIMI GÖRSELLEŞTİRME
+// ============================================
+
+// Task token bilgilerini güncelle
+function updateTaskTokenDisplay(taskId, taskTotals) {
+  const taskEl = document.querySelector(`[data-task-id="${taskId}"]`);
+  if (!taskEl) return;
+
+  // Token badge ekle veya güncelle
+  let tokenBadge = taskEl.querySelector('.token-badge');
+  if (!tokenBadge) {
+    tokenBadge = document.createElement('div');
+    tokenBadge.className = 'token-badge';
+    tokenBadge.style.cssText = `
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-radius: 4px;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+      font-weight: 600;
+    `;
+    taskEl.querySelector('.task-header')?.appendChild(tokenBadge);
+  }
+
+  const totalFormatted = taskTotals.total.toLocaleString();
+  tokenBadge.innerHTML = `🪙 ${totalFormatted} tokens`;
+  tokenBadge.title = `Input: ${taskTotals.total_input.toLocaleString()}\nOutput: ${taskTotals.total_output.toLocaleString()}\nRequests: ${taskTotals.requests}`;
+}
+
+// Agent token bilgilerini güncelle
+function updateAgentTokenDisplay(agentId, usage) {
+  const agentEl = document.querySelector(`[data-agent-id="${agentId}"]`);
+  if (!agentEl) return;
+
+  // Token info ekle veya güncelle
+  let tokenInfo = agentEl.querySelector('.agent-token-info');
+  if (!tokenInfo) {
+    tokenInfo = document.createElement('div');
+    tokenInfo.className = 'agent-token-info';
+    tokenInfo.style.cssText = `
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 0.3rem;
+    `;
+    agentEl.querySelector('.agent-card-content')?.appendChild(tokenInfo);
+  }
+
+  tokenInfo.innerHTML = `🪙 ${usage.total_tokens.toLocaleString()} tokens`;
+  tokenInfo.title = `Input: ${usage.input_tokens}\nOutput: ${usage.output_tokens}\nDuration: ${usage.duration_ms}ms`;
+}
+
+// Global token bilgilerini göster
+function updateGlobalTokenDisplay(globalTotals) {
+  // Claude status yanına token bilgisi ekle
+  const claudeStatus = document.getElementById('claudeStatus');
+  if (!claudeStatus) return;
+
+  let tokenDisplay = document.getElementById('globalTokenDisplay');
+  if (!tokenDisplay) {
+    tokenDisplay = document.createElement('div');
+    tokenDisplay.id = 'globalTokenDisplay';
+    tokenDisplay.style.cssText = `
+      display: inline-block;
+      margin-left: 1rem;
+      padding: 0.3rem 0.7rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 0.8rem;
+    `;
+    claudeStatus.parentElement.insertBefore(tokenDisplay, claudeStatus.nextSibling);
+  }
+
+  tokenDisplay.innerHTML = `🪙 ${globalTotals.total.toLocaleString()} tokens`;
+  tokenDisplay.title = `Total requests: ${globalTotals.requests}`;
 }
 
 window.switchMainTab = switchMainTab;

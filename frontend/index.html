@@ -161,6 +161,14 @@
               <option value="newest">Yeniden Eskiye</option>
               <option value="oldest">Eskiden Yeniye</option>
             </select>
+
+            <select id="taskLimit" onchange="filterTasks()" style="padding: 0.4rem; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;">
+              <option value="10">Son 10 görev</option>
+              <option value="20">Son 20 görev</option>
+              <option value="50">Son 50 görev</option>
+              <option value="100">Son 100 görev</option>
+              <option value="all">Tüm görevler</option>
+            </select>
           </div>
 
           <div id="taskList" class="item-list"></div>
@@ -248,6 +256,14 @@
                 <option value="oldest">🕑 Eskiden Yeniye</option>
                 <option value="duration-desc">⏱️ Süre (Uzun → Kısa)</option>
                 <option value="duration-asc">⏱️ Süre (Kısa → Uzun)</option>
+              </select>
+
+              <select id="tasksViewLimit" onchange="filterTasksView()" class="tasks-filter-select">
+                <option value="10">📊 Son 10 görev</option>
+                <option value="20">📊 Son 20 görev</option>
+                <option value="50">📊 Son 50 görev</option>
+                <option value="100">📊 Son 100 görev</option>
+                <option value="all">📊 Tüm görevler</option>
               </select>
             </div>
 
